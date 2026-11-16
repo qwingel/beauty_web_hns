@@ -131,6 +131,10 @@ class Archive(models.Model):
     upload_error = models.TextField(blank=True)
     object_key = models.TextField(unique=True)
     storage_bucket = models.TextField(blank=True)
+    storage_endpoint = models.TextField(blank=True)
+    storage_region = models.CharField(max_length=128, blank=True)
+    storage_version_id = models.TextField(blank=True)
+    storage_etag = models.TextField(blank=True)
     stored_at = models.DateTimeField(null=True)
     retain_until = models.DateTimeField(default=default_retention)
     pinned = models.BooleanField(default=False)
@@ -144,6 +148,6 @@ class Archive(models.Model):
             models.CheckConstraint(condition=~Q(upload_state="stored") | (Q(stored_at__isnull=False) & ~Q(storage_bucket="")), name="ac_stored_reference_required"),
         ]
         indexes = [
-            models.Index(fields=["upload_next_attempt_at"], condition=Q(upload_state__in=["pending", "failed"]), name="ac_upload_queue"),
+            models.Index(fields=["upload_next_attempt_at"], condition=Q(upload_state__in=["pending", "uploading", "failed"]), name="ac_upload_queue"),
             models.Index(fields=["retain_until"], condition=Q(pinned=False), name="ac_archive_retention"),
         ]

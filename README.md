@@ -16,7 +16,8 @@ Only the anticheat backend is implemented at this stage.
 - `deploy/`: example systemd unit for the worker.
 
 The foundation uses Django 5.2 LTS, PostgreSQL 14+ and Python 3.10+.
-No public frontend, Steam login, S3 upload or automatic deletion is implemented.
+No public frontend, Steam login or automatic deletion is implemented.
+Private S3-compatible uploads are implemented with streamed read-back verification.
 There is no separate API yet. `/admin/` uses Django login and staff/model
 permissions; anonymous and ordinary site users cannot inspect anticheat data.
 Telemetry is read-only in the admin. Servers can be configured by administrators.
@@ -105,8 +106,71 @@ Nicknames and original bytes are preserved by the producer packer.
 Source journals are **never deleted**. A processed journal means its local
 archives and database records were created; it does not mean S3 upload succeeded.
 Archive upload states start at `pending`. `stored` requires a bucket reference
-and completion timestamp, reserved for a future uploader that verifies storage.
+and completion timestamp and is set only after successful S3 read-back verification.
 Local files must stay outside static/public web directories.
+
+## Private S3 uploads (Timeweb Cloud)
+
+The selected destination is the private Timeweb Cloud bucket
+`687cfbdb-532d-4bdc-8d35-8c096a8ddfda`, endpoint `https://s3.twcstorage.ru`,
+region `ru-1`. `.env.example` contains these values and uses path-style addressing,
+matching [Timeweb's boto3 example](https://github.com/timeweb-cloud/s3-examples/blob/master/python3/main.py).
+The live bucket must already exist and have public access disabled. The worker
+does not create buckets or change bucket policies/ACLs.
+
+Export these settings together with the normal Django/database settings:
+
+```powershell
+$env:AC_S3_BUCKET = '687cfbdb-532d-4bdc-8d35-8c096a8ddfda'
+$env:AC_S3_ENDPOINT_URL = 'https://s3.twcstorage.ru'
+$env:AC_S3_REGION = 'ru-1'
+$env:AC_S3_ADDRESSING_STYLE = 'path'
+# Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY privately in the environment.
+# Process journals, then upload due archives for this game server:
+.\.venv\Scripts\python.exe manage.py process_ac_archives --upload --once
+# Retry uploads without scanning the journal spool:
+.\.venv\Scripts\python.exe manage.py upload_ac_archives --once
+```
+
+Omit `--once` for continuous processing. The combined worker uploads even when
+no new journals arrive. Without `--upload`, journal processing remains local.
+The standalone uploader accepts `--server-id` (or `AC_SERVER_ID`); without either,
+it processes all servers. All workers for a server must be able to read the same
+local archive paths. The systemd example enables combined processing/upload.
+
+Credentials use boto3's standard AWS environment/profile/role chain; credentials
+are never stored in PostgreSQL. Grant access to the archive prefix for
+`s3:PutObject` and `s3:GetObject`. Permission to distinguish missing keys from
+forbidden keys (usually `s3:ListBucket`, restricted to the relevant prefix) is
+needed for new objects: `AccessDenied` is treated as a failure. No delete permission
+is required. For another S3 provider, change endpoint/region/addressing style;
+leave `AC_S3_ENDPOINT_URL` empty for AWS. HTTPS is required outside localhost.
+
+Uploads have a separate durable queue: `pending` -> `uploading` -> `stored`, or
+`failed` with retries from 10 seconds to one hour. PostgreSQL session locks avoid
+parallel processing of the same archive; interrupted `uploading` jobs can be
+reclaimed. The destination bucket, endpoint and region are bound before the
+first attempt so a config change cannot silently move a retry to another store.
+
+An existing key is read and its actual bytes are hashed. Matching content is
+reused even if the local file is no longer available; conflicting content fails
+without overwrite. For a new key, the local file's size/SHA-256 is checked before
+an atomic single PUT with `If-None-Match: *`, followed by streamed GET verification
+of the stored size and SHA-256. The verified response's ETag and optional version
+ID are saved for future retrieval. ETag and user metadata are not treated as
+content checksums. This read-back adds outgoing traffic equal to the archive size.
+
+The endpoint must support conditional PUT; errors are surfaced rather than
+falling back to unconditional writes. A live Timeweb smoke test on 2026-11-17
+passed PUT/GET SHA-256 verification, existing-object reuse and conditional PUT
+protection. Anonymous GET returned 403. The temporary test object was deleted.
+The test used a temporary SSH forward through the game VPS because direct TLS
+handshakes from the workstation timed out; credentials stayed on the workstation.
+This verifies storage compatibility, not deployment of the worker on the VPS.
+Single files above 5 GiB require future multipart support.
+Neither local files nor source journals are removed, and no S3 lifecycle/retention
+rule is installed. `stored` records successful verification at that time; it is
+not a continuous audit against later external deletion or modification.
 
 `retain_until` initially records 12 calendar months from processing. No cleanup
 runs. Extended retention for detections and pinned evidence remains undecided;
@@ -126,8 +190,11 @@ user; the unit grants write access only to its output directory.
 Tests require a reachable PostgreSQL instance and a role allowed to create a
 test database. Django creates/drops its isolated test database. The producer
 checkout is required (the default test path is the sibling `beauty-server`).
+Install the test extra for the Moto S3 emulator. Tests use fake credentials and
+do not contact the live bucket.
 
 ```powershell
+.\.venv\Scripts\python.exe -m pip install -e '.[test]'
 .\.venv\Scripts\python.exe manage.py check
 .\.venv\Scripts\python.exe manage.py makemigrations --check --dry-run
 .\.venv\Scripts\python.exe manage.py test anticheat --noinput
@@ -137,4 +204,6 @@ checkout is required (the default test path is the sibling `beauty-server`).
 Coverage includes both movement kinds, segment isolation, float preservation,
 decisions/summaries, idempotency, corruption, retry backoff, transactional rollback,
 crash recovery, cross-session locking, late/pending identity, incomplete captures,
-multi-server IDs, upload-state constraints and admin access.
+multi-server IDs, upload-state constraints and admin access. S3 tests cover
+read-back verification, retry after successful PUT, corruption, conditional-write
+races, version IDs, destination binding, cross-session locking and both commands.

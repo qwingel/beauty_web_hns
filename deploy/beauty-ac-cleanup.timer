@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Beauty AC source cleanup every minute
+
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=1min
+AccuracySec=10s
+Unit=beauty-ac-cleanup.service
+
+[Install]
+WantedBy=timers.target

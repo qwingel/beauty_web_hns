@@ -1,0 +1,24 @@
+[Unit]
+Description=Beauty AC verified source journal cleanup
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=beauty-ac
+Group=beauty-ac
+EnvironmentFile=/etc/beauty-ac/worker.env
+WorkingDirectory=/opt/beauty-ac-web
+ExecStart=/opt/beauty-ac-web/.venv/bin/python manage.py cleanup_ac_journals
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/beauty_server/serverfiles/cstrike/addons/amxmodx/data/beauty_ac_queue
+Environment=PYTHONDONTWRITEBYTECODE=1
+Nice=15
+CPUWeight=10
+CPUQuota=25%
+IOSchedulingClass=idle
+MemoryMax=384M

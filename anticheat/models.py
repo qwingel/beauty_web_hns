@@ -55,6 +55,11 @@ class Journal(models.Model):
     local_path = models.TextField(blank=True)
     processed_at = models.DateTimeField(null=True)
     created_at = models.DateTimeField(default=timezone.now)
+    cleanup_attempts = models.PositiveIntegerField(default=0)
+    cleanup_next_attempt_at = models.DateTimeField(default=timezone.now)
+    cleanup_error = models.TextField(blank=True)
+    cleanup_verified_at = models.DateTimeField(null=True)
+    source_deleted_at = models.DateTimeField(null=True)
 
     class Meta:
         constraints = [
@@ -62,7 +67,10 @@ class Journal(models.Model):
             models.CheckConstraint(condition=Q(source_sha256__regex=r"^[0-9a-f]{64}$"), name="ac_journal_hash_valid"),
             models.CheckConstraint(condition=Q(state__in=["pending", "processing", "failed", "processed"]), name="ac_journal_state_valid"),
         ]
-        indexes = [models.Index(fields=["server", "next_attempt_at"], condition=~Q(state="processed"), name="ac_journal_queue")]
+        indexes = [
+            models.Index(fields=["server", "next_attempt_at"], condition=~Q(state="processed"), name="ac_journal_queue"),
+            models.Index(fields=["server", "cleanup_next_attempt_at"], condition=Q(source_deleted_at__isnull=True), name="ac_cleanup_queue"),
+        ]
 
 
 class Segment(models.Model):

@@ -71,9 +71,9 @@ def main():
     python = str(APP / ".venv/bin/python")
     run(python, "-m", "pip", "install", str(APP))
 
-    # Grant only traversal to the private home and read access to the spool.
+    # Cleanup may unlink finalized files; the worker's sandbox keeps its spool read-only.
     run("setfacl", "-m", "u:beauty-ac:--x", "/home/beauty_server")
-    run("setfacl", "-m", "u:beauty-ac:r-x,d:u:beauty-ac:r-x", str(SPOOL))
+    run("setfacl", "-m", "u:beauty-ac:rwx,d:u:beauty-ac:r-x", str(SPOOL))
     for path in SPOOL.iterdir():
         if path.is_file() and path.suffix in {".ready", ".open"}:
             run("setfacl", "-m", "u:beauty-ac:r--", str(path))
@@ -105,8 +105,10 @@ def main():
     run("runuser", "-u", "beauty-ac", "--", python, str(APP / "manage.py"), "check", env=worker_environment, cwd=APP)
     run("runuser", "-u", "beauty-ac", "--", python, str(APP / "manage.py"), "migrate", "--noinput", env=worker_environment, cwd=APP)
     shutil.copyfile(APP / "deploy/beauty-ac-worker.service", "/etc/systemd/system/beauty-ac-worker.service")
+    for unit in ("beauty-ac-cleanup.service", "beauty-ac-cleanup.timer"):
+        shutil.copyfile(APP / "deploy" / unit, Path("/etc/systemd/system") / unit)
     run("systemctl", "daemon-reload")
-    print("Bootstrap complete. Verify one journal, then enable beauty-ac-worker.service.")
+    print("Bootstrap complete. Verify one journal and cleanup dry-run, then enable the worker and cleanup timer.")
 
 
 if __name__ == "__main__":

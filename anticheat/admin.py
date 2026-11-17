@@ -29,7 +29,7 @@ class PlayerAdmin(TelemetryAdmin):
 
 @admin.register(Journal)
 class JournalAdmin(TelemetryAdmin):
-    list_display = ("id", "server", "map_name", "state", "attempts", "processed_at")
+    list_display = ("id", "server", "map_name", "state", "attempts", "processed_at", "source_deleted_at")
     list_filter = ("state", "server")
 
 

@@ -32,8 +32,8 @@ upgrading the worker or plugin.
 
 Only bhop and gstrafe are collected, with 31-command windows: 15 before the event,
 the event command and 15 after it. Collection has been checked on the VPS;
-isolated overhead still requires an A/B test. This backend has not been deployed
-to the VPS yet.
+isolated collection overhead still requires an A/B test. The backend worker is
+deployed on the game VPS; see the deployment status below.
 
 ## Local setup (PowerShell)
 
@@ -166,7 +166,6 @@ passed PUT/GET SHA-256 verification, existing-object reuse and conditional PUT
 protection. Anonymous GET returned 403. The temporary test object was deleted.
 The test used a temporary SSH forward through the game VPS because direct TLS
 handshakes from the workstation timed out; credentials stayed on the workstation.
-This verifies storage compatibility, not deployment of the worker on the VPS.
 Single files above 5 GiB require future multipart support.
 Neither local files nor source journals are removed, and no S3 lifecycle/retention
 rule is installed. `stored` records successful verification at that time; it is
@@ -184,6 +183,59 @@ on every pass; increase the polling interval if that causes excess disk I/O.
 The example systemd unit uses `/var/lib/beauty-ac` for output and an external
 environment file. Adjust checkout/spool paths and read permissions for the service
 user; the unit grants write access only to its output directory.
+
+## VPS deployment
+
+Deployed on `152.228.115.212` on 2026-11-17. The worker is enabled as
+`beauty-ac-worker.service`, running as the dedicated `beauty-ac` system account.
+The separate PostgreSQL database/role is `beauty_ac`, listening only on localhost
+port 5432. The existing BeautyBans database remains on port 5433; its containers
+were not restarted by this deployment.
+
+- Application: `/opt/beauty-ac-web` (root-owned source and virtual environment).
+- Producer-owned validator snapshot: `/opt/beauty-ac-producer-tools/ac_archive.py`.
+  Its SHA-256 matches the source checkout's `tools/ac_archive.py`.
+- Private credentials/config: `/etc/beauty-ac/worker.env` (root-owned, mode 0600).
+- Local archives: `/var/lib/beauty-ac/archives` (private worker-owned state).
+- Input: `/home/beauty_server/serverfiles/cstrike/addons/amxmodx/data/beauty_ac_queue`.
+
+An ACL grants home traversal and read-only spool access, including inherited read
+access for future journals. The worker cannot write producer journals. The unit
+uses a 25% CPU quota, low CPU/I/O priority and a 384 MiB memory cap. These limits
+bound background resource usage; no in-game A/B performance test was performed.
+
+Before enabling continuous processing, one real 6,909,285-byte journal was run
+through the full pipeline: 26,722 records, 407 bhop windows, 350 gstrafe windows,
+23,467 commands and two counter summaries. Its segment archive was 1,731,224 bytes.
+Record streams, field layouts, summaries, player identity and local/S3 SHA-256
+were compared. There were no decisions in this capture; decision ingestion is
+covered by automated tests. The capped run took about 19 seconds and peaked at
+82 MiB. A second run created no duplicate rows or objects.
+
+Continuous startup processed all four existing `.ready` journals: four complete
+journals, three segments for one player, six summaries, three verified `stored`
+S3 archives, zero failures. All raw sources were retained and rehashed. A service
+restart preserved these counts and attempt counters. Newly created spool files
+were checked for inherited read access without write permission. The active
+`.open` journal was not processed. No public web service is deployed yet.
+
+Operational checks (sudo on the VPS):
+
+```sh
+systemctl status beauty-ac-worker.service
+journalctl -u beauty-ac-worker.service -n 50 --no-pager
+sudo -u postgres psql beauty_ac -c 'SELECT state, count(*) FROM anticheat_journal GROUP BY state;'
+sudo -u postgres psql beauty_ac -c 'SELECT upload_state, count(*) FROM anticheat_archive GROUP BY upload_state;'
+```
+
+`deploy/bootstrap_worker.py` provisions a **fresh** application/config directory
+on Ubuntu, installs PostgreSQL/Python prerequisites, creates the dedicated role,
+configures ACLs, applies Django migrations and installs the unit. It takes a
+`git archive` release tar, the original producer validator and an external S3
+credential file. It deliberately does not start the unit; verify a single closed
+journal first, then enable it with `systemctl enable --now beauty-ac-worker.service`.
+It is not an upgrade script. Back up the database and private environment before
+future upgrades. Retention and automatic source cleanup remain unimplemented.
 
 ## Verification
 

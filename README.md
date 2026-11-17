@@ -3,7 +3,7 @@
 Django website for the Beauty CS 1.6 community. Anticheat is one private app,
 not the boundary of the whole website. Planned sections are player profiles and
 statistics, bans, unban tickets, leaderboards, server monitoring and mix history.
-Only the anticheat backend is implemented at this stage.
+The anticheat backend and private web viewer are implemented at this stage.
 
 ## Structure
 
@@ -16,9 +16,9 @@ Only the anticheat backend is implemented at this stage.
 - `deploy/`: example systemd unit for the worker.
 
 The foundation uses Django 5.2 LTS, PostgreSQL 14+ and Python 3.10+.
-No public frontend, Steam login or automatic deletion is implemented.
+No community-facing sections, Steam login or archive expiration are implemented.
 Private S3-compatible uploads are implemented with streamed read-back verification.
-There is no separate API yet. `/admin/` uses Django login and staff/model
+There is no separate API yet. `/anticheat/` is the private viewer. `/admin/` uses Django login and staff/model
 permissions; anonymous and ordinary site users cannot inspect anticheat data.
 Telemetry is read-only in the admin. Servers can be configured by administrators.
 
@@ -103,7 +103,8 @@ number; archive = segment UUID. Pending/LAN/bot/orphan identities retain their r
 SteamID but have no shared Player row. Late `identity` records resolve the player.
 Nicknames and original bytes are preserved by the producer packer.
 
-Source journals are **never deleted**. A processed journal means its local
+Journal processing and uploading retain source files. A separate cleanup timer
+can remove verified, complete `.ready` files as described below. A processed journal means its local
 archives and database records were created; it does not mean S3 upload succeeded.
 Archive upload states start at `pending`. `stored` requires a bucket reference
 and completion timestamp and is set only after successful S3 read-back verification.
@@ -167,12 +168,12 @@ protection. Anonymous GET returned 403. The temporary test object was deleted.
 The test used a temporary SSH forward through the game VPS because direct TLS
 handshakes from the workstation timed out; credentials stayed on the workstation.
 Single files above 5 GiB require future multipart support.
-Neither local files nor source journals are removed, and no S3 lifecycle/retention
-rule is installed. `stored` records successful verification at that time; it is
+The uploader removes neither local files nor source journals, and installs no S3
+lifecycle/retention rule. `stored` records successful verification at that time; it is
 not a continuous audit against later external deletion or modification.
 
-`retain_until` initially records 12 calendar months from processing. No cleanup
-runs. Extended retention for detections and pinned evidence remains undecided;
+`retain_until` initially records 12 calendar months from processing. Archive
+expiration is not implemented. Extended retention for detections and pinned evidence remains undecided;
 `pinned` is reserved for that later policy. The producer's spool cap still stops
 collection when full, so monitor both spool and worker output capacity.
 
@@ -199,8 +200,9 @@ were not restarted by this deployment.
 - Local archives: `/var/lib/beauty-ac/archives` (private worker-owned state).
 - Input: `/home/beauty_server/serverfiles/cstrike/addons/amxmodx/data/beauty_ac_queue`.
 
-An ACL grants home traversal and read-only spool access, including inherited read
-access for future journals. The worker cannot write producer journals. The unit
+An ACL grants home traversal, spool-directory access for cleanup and inherited
+read access for future journals. The processing worker's sandbox keeps the spool
+read-only; only the separate cleanup service has a writable spool mount. The worker unit
 uses a 25% CPU quota, low CPU/I/O priority and a 384 MiB memory cap. These limits
 bound background resource usage; no in-game A/B performance test was performed.
 
@@ -217,7 +219,54 @@ journals, three segments for one player, six summaries, three verified `stored`
 S3 archives, zero failures. All raw sources were retained and rehashed. A service
 restart preserved these counts and attempt counters. Newly created spool files
 were checked for inherited read access without write permission. The active
-`.open` journal was not processed. No public web service is deployed yet.
+`.open` journal was not processed. The web viewer was deployed subsequently,
+as described below.
+
+## Private web viewer
+
+Available at `https://152.228.115.212/anticheat/`. The IP HTTPS server uses the
+existing self-signed certificate. HTTP redirects this section to HTTPS; existing
+FastDL, mix, BeautyBans and phpMyAdmin routes are preserved. Gunicorn is bound to
+`127.0.0.1:8091` behind nginx and enabled as `beauty-web.service`.
+
+Features: SteamID/current or historical nickname search, player connection
+history, map and connection timestamps, complete/incomplete capture status,
+bhop/gstrafe counters, detector decisions with a detection-only filter, paginated
+window lists and a command table with the anchor highlighted. Raw recorded fields
+include positions, view angles and velocity vectors. Displayed XY speeds are
+derived from recorded vectors; no movement re-simulation or new detection runs.
+
+All viewer pages require an active staff account with every view permission for
+Player, Segment, Summary, Decision, Archive and Journal in `anticheat`. A superuser
+with staff status also qualifies. Normal authenticated accounts and staff without
+these permissions receive 403. Login and logout use Django authentication; logout
+requires POST/CSRF. Private responses are non-cacheable, and production cookies
+are secure. No public registration or public archive links are exposed.
+
+The viewer hashes local archives before reading them. If a local archive is
+missing, it downloads the bound S3 object (the recorded version when available)
+into a temporary file and checks size/SHA-256 before parsing. Windows and commands
+are streamed with bounded page sizes; archives above 128 MiB are not served by
+the current viewer. Corruption/unavailability returns a generic 503 without
+exposing private paths or credentials. Archive cleanup and processing are unchanged.
+
+The deployed account `krasi` has only the required staff/view permissions. Its
+initial password was delivered in a local file outside this repository; it is
+not included in deployment source or this README. Manage additional accounts
+using Django management commands or the Django admin in a suitable private setup.
+
+Deployment references: `deploy/beauty-web.service` and `deploy/anticheat.nginx.conf`.
+Serve the static directory from `python manage.py collectstatic`; do not expose
+`/var/lib/beauty-ac` as static content. Set `DJANGO_ALLOWED_HOSTS` to the actual host.
+The proxy overrides `X-Forwarded-Proto`; Django trusts it only behind this loopback
+deployment. Local `runserver` works at `http://127.0.0.1:8000/anticheat/` with
+`DJANGO_DEBUG=1`. Public deployments keep secure cookies enabled.
+
+Live HTTPS checks passed for login/CSRF, secure cookies, search, player history,
+statistics, command windows, static CSS, logout and anonymous access protection.
+Browser visual QA was unavailable because the browser access host was offline.
+The viewer's tests also cover model permissions, nickname escaping, historical
+search counts, partial windows, corrupt archives and verified S3 fallback.
 
 Operational checks (sudo on the VPS):
 
@@ -235,7 +284,61 @@ configures ACLs, applies Django migrations and installs the unit. It takes a
 credential file. It deliberately does not start the unit; verify a single closed
 journal first, then enable it with `systemctl enable --now beauty-ac-worker.service`.
 It is not an upgrade script. Back up the database and private environment before
-future upgrades. Retention and automatic source cleanup remain unimplemented.
+future upgrades. Archive retention/expiration remains unimplemented.
+
+## Source spool cleanup
+
+`beauty-ac-cleanup.timer` runs `cleanup_ac_journals` once per minute. The separate
+oneshot service uses the same private database/S3 environment as the worker and
+has write access only to the configured game spool. The processing worker keeps
+its existing read-only spool mount. Directory ACLs permit unlinking, while source
+file contents remain read-only to `beauty-ac`.
+
+Cleanup requires all of the following:
+
+- A processed journal with `integrity.complete: true` and at least one segment.
+- A regular `.ready` source directly inside the configured spool, with matching
+  source SHA-256 and unchanged inode/size/modification metadata during verification.
+- An exact match between the report's segment inventory and database segments.
+- One `stored` archive per segment in the configured bucket/endpoint/region.
+- Fresh streamed GET/size/SHA-256 verification of **every** archive in S3.
+
+Active `.open` files, unprocessed/corrupt/incomplete captures, empty journals
+without durable segment archives and unrelated paths are retained. Empty journals
+are tiny but still count toward spool usage; storing a map-level manifest before
+removing them is a future improvement. Local compressed map/segment archives and
+all PostgreSQL records remain available. No S3 objects are deleted by cleanup.
+
+The cleaner uses the same journal advisory lock as processing and records a
+verified cleanup intent before unlinking. After unlink it syncs the spool
+directory and records `source_deleted_at`. A crash between these steps can be
+reconciled on the next run; a missing file without prior verified intent produces
+an error. Failures retain available sources, record `cleanup_error` and retry
+with backoff from 10 seconds to one hour. No filename-based bulk deletion runs.
+
+Preview with the normal environment exported:
+
+```sh
+python manage.py cleanup_ac_journals --dry-run
+python manage.py cleanup_ac_journals
+systemctl enable --now beauty-ac-cleanup.timer
+systemctl list-timers beauty-ac-cleanup.timer
+journalctl -u beauty-ac-cleanup.service -n 50 --no-pager
+```
+
+Apply migrations before installing/enabling the timer. The default service's
+`ReadWritePaths` names the live game spool; adjust it when deploying elsewhere.
+For an existing installation, grant `u:beauty-ac:rwx` on the spool directory,
+preserve inherited file read access, and keep the worker's sandbox unchanged.
+
+Enabled on the VPS on 2026-11-17 after a successful dry-run and a sandbox test
+confirming that the processing worker still cannot unlink spool files. The first
+cleanup removed three verified `.ready` journals (7,106,922 bytes). The empty
+239-byte journal and the active `.open` were retained. All three local/S3 archives,
+three segments and six summaries were verified again after deletion; cleanup
+timestamps and attempt counters were checked. A subsequent timer pass completed
+without errors or duplicate deletion. Before deployment, the existing code and
+database were backed up under `/var/lib/beauty-ac/deploy-backups/20261117T001925Z`.
 
 ## Verification
 
@@ -259,3 +362,5 @@ crash recovery, cross-session locking, late/pending identity, incomplete capture
 multi-server IDs, upload-state constraints and admin access. S3 tests cover
 read-back verification, retry after successful PUT, corruption, conditional-write
 races, version IDs, destination binding, cross-session locking and both commands.
+Cleanup tests cover complete-archive gating, fresh S3 verification, source/path
+protection, dry-run, lock contention, error backoff and crash reconciliation.

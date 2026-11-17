@@ -18,6 +18,12 @@ PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
 ReadWritePaths=/var/lib/beauty-ac
+Environment=PYTHONDONTWRITEBYTECODE=1
+Nice=10
+CPUWeight=10
+CPUQuota=25%
+IOSchedulingClass=idle
+MemoryMax=384M
 
 [Install]
 WantedBy=multi-user.target

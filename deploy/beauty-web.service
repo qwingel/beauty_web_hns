@@ -1,0 +1,26 @@
+[Unit]
+Description=Beauty Django private anticheat website
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+User=beauty-ac
+Group=beauty-ac
+EnvironmentFile=/etc/beauty-ac/worker.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+WorkingDirectory=/opt/beauty-ac-web
+ExecStart=/opt/beauty-ac-web/.venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8091 --workers 1 --threads 2 --timeout 90 --access-logfile -
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+Nice=10
+CPUWeight=10
+CPUQuota=50%
+MemoryMax=384M
+
+[Install]
+WantedBy=multi-user.target

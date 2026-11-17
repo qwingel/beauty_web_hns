@@ -1,0 +1,5 @@
+{% extends 'anticheat/base.html' %}{% block title %}Вход{% endblock %}{% block content %}
+<section class="login"><div class="eyebrow">BEAUTY / ADMINISTRATION</div><h1>Вход в античит</h1><p class="muted">Подключения, статистика и записанные команды игроков.</p>
+{% if form.errors %}<p role="alert" class="notice bad">Проверьте имя пользователя и пароль.</p>{% endif %}
+<form method="post">{% csrf_token %}<input type="hidden" name="next" value="{{ next }}"><label for="id_username">Имя пользователя</label><input id="id_username" name="username" autocomplete="username" required autofocus maxlength="150"><label for="id_password">Пароль</label><input id="id_password" name="password" type="password" autocomplete="current-password" required><button class="primary">Войти</button></form></section>
+{% endblock %}

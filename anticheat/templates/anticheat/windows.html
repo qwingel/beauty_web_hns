@@ -1,4 +1,4 @@
-{% extends 'anticheat/base.html' %}{% block title %}Командные окна{% endblock %}{% block content %}
+{% extends 'anticheat/base.html' %}{% block title %}Командные окна{% endblock %}{% block viewer %}
 <a class="back" href="{% url 'anticheat:segment' segment.id %}">← {{ segment.name|default:segment.steamid }} · {{ segment.journal.map_name }}</a><div class="eyebrow">ЗАПИСАННЫЕ КОМАНДЫ</div><h1>{% if selected %}{{ selected.label }} · команда {{ selected.center }}{% else %}Командные окна{% endif %}</h1>
 {% if not segment.journal.integrity.complete %}<p class="notice warn">Журнал неполный: часть команд или окон могла не сохраниться.</p>{% endif %}
 {% if error %}<p role="alert" class="notice bad">{{ error }}</p>{% elif selected %}<div class="actions"><a href="{% url 'anticheat:windows' segment.id %}">Все окна</a><span class="badge {% if selected.partial or missing %}warn{% else %}good{% endif %}">{% if selected.partial or missing %}Неполное окно{% else %}Полное окно{% endif %}</span><span class="muted">{{ commands|length }} команд · якорная команда выделена</span></div>

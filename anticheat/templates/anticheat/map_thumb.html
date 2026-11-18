@@ -1,0 +1,7 @@
+{% load static ac_maps %}
+{% with image=map_name|map_screenshot %}
+    <span class="map-thumb" aria-hidden="true">
+        {% if image %}<img src="{% static image %}" alt="" loading="lazy" decoding="async">
+        {% else %}{% include 'community/icon.html' with name='matches' only %}{% endif %}
+    </span>
+{% endwith %}

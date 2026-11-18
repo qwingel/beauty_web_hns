@@ -1,3 +1,16 @@
-{% extends 'anticheat/base.html' %}{% block title %}{{ player.steamid }}{% endblock %}{% block content %}
-<a class="back" href="{% url 'anticheat:index' %}">← Поиск игроков</a><div class="eyebrow">ИСТОРИЯ ИГРОКА</div><h1 class="mono">{{ player.steamid }}</h1><p class="muted">Каждый вход — отдельное подключение, в том числе при перезаходе на той же карте.</p><section class="panel"><div class="section-head"><h2>Подключения</h2><span class="muted">{{ history.paginator.count }}</span></div>{% include 'anticheat/connections.html' %}{% include 'anticheat/pagination.html' with entries=history %}</section>
+{% extends 'anticheat/base.html' %}{% block title %}{{ player.steamid }}{% endblock %}{% block viewer %}
+<a class="back" href="{% url 'anticheat:index' %}">← Поиск игроков</a>
+<div class="eyebrow">История игрока</div>
+<h1>{{ latest.name|default:player.steamid }}</h1>
+<p class="muted mono">{{ player.steamid }}</p>
+<div class="facts">
+    <div><small>Подключений</small><strong>{{ history.paginator.count }}</strong></div>
+    <div><small>Детектов</small><strong>{{ detection_count }}</strong></div>
+</div>
+<section class="panel">
+    <div class="section-head"><h2>Подключения</h2></div>
+    {% include 'anticheat/connections.html' %}
+    {% include 'anticheat/pagination.html' with entries=history %}
+</section>
+<section class="panel"><div class="section-head"><h2>Комментарии к игроку</h2></div><p class="empty">Комментариев пока нет.</p></section>
 {% endblock %}

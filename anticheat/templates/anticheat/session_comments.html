@@ -1,0 +1,30 @@
+{% load tz %}
+<aside id="session-comments" class="panel session-comments" aria-labelledby="session-comments-heading">
+    <div class="section-head"><h2 id="session-comments-heading">Комментарии к сессии</h2></div>
+    <form class="comment-form" method="post" action="#session-comments">
+        {% csrf_token %}
+        <label for="{{ comment_form.body.id_for_label }}" class="sr-only">{{ comment_form.body.label }}</label>
+        {{ comment_form.body }}
+        {{ comment_form.body.errors }}
+        <button class="primary" type="submit">Отправить</button>
+    </form>
+    <ul class="review-list comment-list" role="list">
+        {% for comment in comments %}
+            <li>
+                <div class="comment-meta">
+                    <strong>{% if comment.author %}{{ comment.author.get_username }}{% else %}Удалённый аккаунт{% endif %}</strong>
+                    <time datetime="{{ comment.created_at|date:'c' }}">{{ comment.created_at|timezone:'Europe/Moscow'|date:'d.m.Y H:i' }}</time>
+                </div>
+                <p>{{ comment.body }}</p>
+            </li>
+        {% empty %}
+            <li class="empty">Комментариев пока нет.</li>
+        {% endfor %}
+    </ul>
+    {% if comments.has_other_pages %}
+        <nav class="pagination" aria-label="Страницы комментариев">
+            {% if comments.has_previous %}<a data-stats-context href="{% querystring comments_page=comments.previous_page_number %}#session-comments">← Новее</a>{% endif %}
+            {% if comments.has_next %}<a data-stats-context href="{% querystring comments_page=comments.next_page_number %}#session-comments">Старее →</a>{% endif %}
+        </nav>
+    {% endif %}
+</aside>

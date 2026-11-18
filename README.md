@@ -25,6 +25,16 @@ There is no separate API yet. `/anticheat/` is the private viewer. `/admin/` use
 permissions; anonymous and ordinary site users cannot inspect anticheat data.
 Telemetry is read-only in the admin. Servers can be configured by administrators.
 
+The anticheat match list can read the game's SQL stats using the optional
+`matches` extra (`pip install '.[matches]'`). Set `AC_MATCH_DATABASE_URL` to a
+`mysql://user:password@host:3306/database` URL for a read-only account on
+`beauty_mix_matches` and `beauty_mix_match_players`, and set `AC_MATCH_SERVER_ID`
+to the UUID of the corresponding anticheat server. Without a stats URL the
+viewer lists the demo matches.
+The stats source stores active play time. The viewer infers the match interval
+from that duration and the finish timestamp, so gaps between rounds can exclude
+some early connections.
+
 ## Producer boundary
 
 The game plugin, journal validator and wire-format field definitions remain in

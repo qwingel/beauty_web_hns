@@ -1,5 +1,14 @@
-{% extends 'anticheat/base.html' %}{% block title %}Вход{% endblock %}{% block content %}
-<section class="login"><div class="eyebrow">BEAUTY / ADMINISTRATION</div><h1>Вход в античит</h1><p class="muted">Подключения, статистика и записанные команды игроков.</p>
+{% extends 'anticheat/base.html' %}{% block title %}Beauty — вход в античит{% endblock %}
+{% block main_class %}ac-main auth-main{% endblock %}
+{% block viewer %}
+<section class="profile-panel auth-card"><h1>Вход в античит</h1><p class="muted">Для сотрудников сервера.</p>
 {% if form.errors %}<p role="alert" class="notice bad">Проверьте имя пользователя и пароль.</p>{% endif %}
-<form method="post">{% csrf_token %}<input type="hidden" name="next" value="{{ next }}"><label for="id_username">Имя пользователя</label><input id="id_username" name="username" autocomplete="username" required autofocus maxlength="150"><label for="id_password">Пароль</label><input id="id_password" name="password" type="password" autocomplete="current-password" required><button class="primary">Войти</button></form></section>
+<form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    {{ form.as_div }}
+    <button class="primary" type="submit">Войти</button>
+</form>
+<p class="profile-alternative"><a href="{% url 'home' %}">← На главную</a></p>
+</section>
 {% endblock %}

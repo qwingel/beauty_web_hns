@@ -1,8 +1,74 @@
-{% extends 'anticheat/base.html' %}{% load tz %}{% block title %}{{ segment.name|default:'Подключение' }}{% endblock %}{% block content %}
-{% if segment.player_id %}<a class="back" href="{% url 'anticheat:player' segment.player_id %}">← Подключения игрока</a>{% else %}<a class="back" href="{% url 'anticheat:index' %}">← Поиск игроков</a>{% endif %}<div class="eyebrow">ЗАПИСЬ ПОДКЛЮЧЕНИЯ</div><h1>{{ segment.name|default:segment.steamid }}</h1><p class="mono muted">{{ segment.steamid|default:'SteamID не определён' }}</p>
-<div class="facts"><div><small>Карта</small><strong>{{ segment.journal.map_name }}</strong></div><div><small>Вход</small><strong>{{ segment.started_at|timezone:'Europe/Moscow'|date:'d.m.Y H:i:s'|default:'—' }}</strong></div><div><small>Выход</small><strong>{{ segment.ended_at|timezone:'Europe/Moscow'|date:'d.m.Y H:i:s'|default:'Не записан' }}</strong></div><div><small>Детекты</small><strong>{{ segment.detections }}</strong></div></div>
-{% if not segment.journal.integrity.complete %}<p class="notice warn">Неполная запись: возможны пропуски данных. Пропущенных записей: {{ segment.journal.integrity.missing_records }}. Незавершённых окон: {{ segment.journal.integrity.unfinished_windows }}.</p>{% endif %}
-<div class="actions"><a class="primary" href="{% url 'anticheat:windows' segment.id %}">Смотреть командные окна →</a><span class="muted">15 до события · событие · 15 после</span></div>
-<div class="grid">{% for summary in summaries %}<section class="panel"><div class="section-head"><h2>{{ summary.kind }}</h2><span class="muted">Итоговые счётчики</span></div><div class="counters"><table><tbody>{% for key,value in summary.counters %}<tr><th class="mono">{{ key }}</th><td class="mono">{{ value }}</td></tr>{% endfor %}</tbody></table></div></section>{% empty %}<p class="notice">Итоговые счётчики не записаны.</p>{% endfor %}</div>
-<section class="panel"><div class="section-head"><h2>Решения детекторов</h2><a href="?{% if not detected_only %}detected=1{% endif %}">{% if detected_only %}Все решения{% else %}Только детекты{% endif %}</a></div><div class="scroll"><table><thead><tr><th>Команда</th><th>Модуль</th><th>Результат</th><th>Фаза</th><th>Код причины</th></tr></thead><tbody>{% for decision in decisions %}<tr><td class="mono">{{ decision.command_id|default_if_none:'—' }}</td><td>{{ decision.get_kind_display }}</td><td>{% if decision.payload.detect %}<span class="badge bad">Детект</span>{% else %}<span class="muted">Без детекта</span>{% endif %}</td><td>{{ decision.payload.phase|default_if_none:'—' }}</td><td>{{ decision.payload.reason|default_if_none:'—' }}</td></tr>{% empty %}<tr><td class="empty" colspan="5">{% if detected_only %}Детектов не записано.{% else %}Решений детекторов в этом подключении нет.{% endif %}</td></tr>{% endfor %}</tbody></table></div>{% include 'anticheat/pagination.html' with entries=decisions %}</section>
+{% extends 'anticheat/base.html' %}
+{% load static tz %}
+{% block title %}{{ segment.name|default:'Подключение' }}{% endblock %}
+{% block styles %}{{ block.super }}<script src="{% static 'anticheat/session-statistics.js' %}" defer></script>{% endblock %}
+{% block viewer %}
+{% if match_id %}
+    <a class="back" href="{% url 'anticheat:match' match_id %}">← К матчу #{{ match_id }}</a>
+{% elif segment.player_id %}
+    <a class="back" href="{% url 'anticheat:player' segment.player_id %}">← Подключения игрока</a>
+{% else %}
+    <a class="back" href="{% url 'anticheat:index' %}">← Античит</a>
+{% endif %}
+<div class="eyebrow">Сессия античита</div>
+<h1>{{ segment.name|default:segment.steamid }}</h1>
+<p class="mono muted">{{ segment.steamid|default:'SteamID не определён' }}</p>
+<div class="facts session-facts">
+    <div class="map-row-title">
+        {% include 'anticheat/map_thumb.html' with map_name=segment.journal.map_name only %}
+        <span><small>Карта</small><strong>{{ segment.journal.map_name }}</strong></span>
+    </div>
+    <div><small>Вход</small><strong>{{ segment.started_at|timezone:'Europe/Moscow'|date:'d.m.Y H:i:s'|default:'—' }}</strong></div>
+    <div><small>Выход</small><strong>{{ segment.ended_at|timezone:'Europe/Moscow'|date:'d.m.Y H:i:s'|default:'Не записан' }}</strong></div>
+    <div><small>Детекты</small><strong>{{ segment.detections }}</strong></div>
+</div>
+{% if not segment.journal.integrity.complete %}
+    <p class="notice warn">Неполная запись: возможны пропуски данных. Пропущенных записей: {{ segment.journal.integrity.missing_records }}. Незавершённых окон: {{ segment.journal.integrity.unfinished_windows }}.</p>
+{% endif %}
+
+<div class="session-layout">
+    <nav class="session-tabs" aria-label="Разделы сессии">
+        <a href="?{% if detected_only %}detected=1{% endif %}{{ match_query }}"{% if not show_patterns %} aria-current="page"{% endif %}>Сводка</a>
+        <a href="?tab=patterns{{ match_query }}"{% if show_patterns %} aria-current="page"{% endif %}>Паттерны</a>
+    </nav>
+
+    <div class="session-content">
+        {% if show_patterns %}
+            {% include 'anticheat/patterns.html' %}
+        {% else %}
+            {% include 'anticheat/session_statistics.html' %}
+            <section class="panel">
+                <div class="section-head">
+                    <h2>Решения детекторов</h2>
+                    {% if detected_only %}
+                        <a data-stats-context href="{{ request.path }}{% querystring detected=None page=None %}">Все решения</a>
+                    {% else %}
+                        <a data-stats-context href="{% querystring detected='1' page=None %}">Только детекты</a>
+                    {% endif %}
+                </div>
+                <div class="scroll">
+                    <table>
+                        <thead><tr><th>Команда</th><th>Модуль</th><th>Результат</th><th>Фаза</th><th>Код причины</th></tr></thead>
+                        <tbody>
+                            {% for decision in decisions %}
+                                <tr>
+                                    <td class="mono">{{ decision.command_id|default_if_none:'—' }}</td>
+                                    <td>{{ decision.get_kind_display }}</td>
+                                    <td>{% if decision.payload.detect %}<span class="badge bad">Детект</span>{% else %}<span class="muted">Без детекта</span>{% endif %}</td>
+                                    <td>{{ decision.payload.phase|default_if_none:'—' }}</td>
+                                    <td>{{ decision.payload.reason|default_if_none:'—' }}</td>
+                                </tr>
+                            {% empty %}
+                                <tr><td class="empty" colspan="5">{% if detected_only %}Детектов не записано.{% else %}Решений детекторов в этом подключении нет.{% endif %}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% include 'anticheat/pagination.html' with entries=decisions preserve_stats=True %}
+            </section>
+        {% endif %}
+    </div>
+
+    {% include 'anticheat/session_comments.html' %}
+</div>
 {% endblock %}

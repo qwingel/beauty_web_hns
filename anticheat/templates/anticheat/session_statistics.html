@@ -1,0 +1,41 @@
+<section class="panel session-statistics" aria-label="Статистика сессии">
+    <nav class="section-head stats-switcher" aria-label="Детектор в сводке">
+        <a class="filter{% if summary.is_bhop %} active{% endif %}" href="{% querystring stats='bhop' %}"{% if summary.is_bhop %} aria-current="page"{% endif %}>Bhop</a>
+        <a class="filter{% if not summary.is_bhop %} active{% endif %}" href="{% querystring stats='gstrafe' %}"{% if not summary.is_bhop %} aria-current="page"{% endif %}>Gstrafe</a>
+    </nav>
+    <p class="empty stats-error" role="alert" hidden>Не удалось загрузить статистику. Попробуйте ещё раз.</p>
+    {% if summary.rows %}
+        <div class="scroll" role="region" aria-label="Статистика {{ summary.kind }}" tabindex="0">
+            <table>
+                <thead><tr>
+                    <th scope="col">Type</th>
+                    <th scope="col">Count</th>
+                    <th scope="col">Overall %</th>
+                    <th scope="col">Max IAR</th>
+                    <th scope="col">Ideal %</th>
+                    {% if summary.is_bhop %}
+                        <th scope="col">IDR %</th>
+                        <th scope="col">Avg Scrolls</th>
+                        <th scope="col">Fast %</th>
+                    {% endif %}
+                </tr></thead>
+                <tbody>
+                    {% for row in summary.rows %}
+                        <tr>
+                            <th scope="row">{{ row.label }}</th>
+                            <td>{{ row.count|default_if_none:"—" }}</td>
+                            <td>{% if row.overall != None %}{{ row.overall|floatformat:1 }}%{% else %}—{% endif %}</td>
+                            <td>{{ row.streak|default_if_none:"—" }}</td>
+                            <td>{% if row.ideal != None %}{{ row.ideal|floatformat:1 }}%{% else %}—{% endif %}</td>
+                            {% for value in row.extra %}
+                                <td>{% if value != None %}{{ value|floatformat:1 }}{% if forloop.counter != 2 %}%{% endif %}{% else %}—{% endif %}</td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p class="empty">Статистика не записана.</p>
+    {% endif %}
+</section>

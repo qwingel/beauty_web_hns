@@ -1,0 +1,38 @@
+<section class="panel" aria-labelledby="patterns-heading">
+    <div class="section-head">
+        <h2 id="patterns-heading">Паттерны</h2>
+    </div>
+    {% if pattern_error %}
+        <p class="notice bad" role="alert">{{ pattern_error }}</p>
+    {% else %}
+        <nav class="pattern-filters" aria-label="Детектор">
+            <a class="filter{% if not kind %} active{% endif %}" href="?tab=patterns{{ match_query }}"{% if not kind %} aria-current="page"{% endif %}>Все</a>
+            <a class="filter{% if kind == '0' %} active{% endif %}" href="?tab=patterns&amp;kind=0{{ match_query }}"{% if kind == '0' %} aria-current="page"{% endif %}>Bhop</a>
+            <a class="filter{% if kind == '1' %} active{% endif %}" href="?tab=patterns&amp;kind=1{{ match_query }}"{% if kind == '1' %} aria-current="page"{% endif %}>Gstrafe</a>
+        </nav>
+        <ul class="review-list pattern-list" role="list">
+            {% for pattern in patterns %}
+                <li>
+                    <div class="pattern-meta">
+                        <strong>{{ pattern.label }} · команда {{ pattern.center }}</strong>
+                        {% if pattern.partial %}<span class="badge warn">Неполная запись</span>{% endif %}
+                    </div>
+                    <div class="pattern-cells" role="group" aria-label="{{ pattern.label }}, 31 команда вокруг события">
+                        {% for cell in pattern.cells %}
+                            <span class="pattern-cell cell-{{ cell.state }}{% if cell.offset == 0 %} cell-anchor{% endif %}" title="{{ cell.offset|stringformat:'+d' }} · {% if cell.state == 'missing' %}нет записи{% elif cell.state == 'command' %}прыжок / присед{% elif cell.state == 'perfect' %}Perfect{% elif cell.state == 'fail' %}Fail{% elif cell.offset == 0 %}событие{% else %}пустая команда{% endif %}{% if cell.fog != None %} · FOG {{ cell.fog }}{% endif %}">{{ cell.fog|default_if_none:"" }}</span>
+                        {% endfor %}
+                    </div>
+                </li>
+            {% empty %}
+                <li class="empty">Паттернов в этой выборке нет.</li>
+            {% endfor %}
+        </ul>
+        {% if previous or following %}
+            <nav class="pagination" aria-label="Страницы паттернов">
+                {% if previous %}<a href="?tab=patterns&amp;kind={{ kind }}&amp;page={{ previous }}{{ match_query }}">← Назад</a>{% endif %}
+                <span class="muted">Страница {{ page_number }}</span>
+                {% if following %}<a href="?tab=patterns&amp;kind={{ kind }}&amp;page={{ following }}{{ match_query }}">Далее →</a>{% endif %}
+            </nav>
+        {% endif %}
+    {% endif %}
+</section>

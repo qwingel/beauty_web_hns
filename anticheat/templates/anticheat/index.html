@@ -1,6 +1,78 @@
-{% extends 'anticheat/base.html' %}{% load tz %}{% block content %}
-<div class="eyebrow">КОНТРОЛЬ СЕРВЕРА</div><h1>Античит</h1><p class="muted">Найдите игрока и откройте запись подключения.</p>
-<form class="search" method="get"><label class="sr-only" for="search">SteamID или ник</label><input id="search" type="search" name="q" value="{{ query }}" maxlength="128" placeholder="SteamID или ник игрока" autofocus><button class="primary">Найти</button>{% if query %}<a href="{% url 'anticheat:index' %}">Сбросить</a>{% endif %}</form>
-<section class="panel"><div class="section-head"><h2>Игроки</h2><span class="muted">{{ players.paginator.count }}</span></div><div class="scroll"><table><thead><tr><th>Игрок</th><th>SteamID</th><th>Подключения</th><th>Последнее подключение</th></tr></thead><tbody>{% for player in players %}<tr><td><a href="{% url 'anticheat:player' player.id %}">{{ player.latest_name|default:'Без имени' }}</a></td><td class="mono">{{ player.steamid }}</td><td>{{ player.connections }}</td><td>{{ player.last_seen|timezone:'Europe/Moscow'|date:'d.m.Y H:i:s'|default:'—' }}</td></tr>{% empty %}<tr><td colspan="4" class="empty">{% if query %}Ничего не найдено. Попробуйте SteamID или прежний ник.{% else %}Обработанных подключений пока нет.{% endif %}</td></tr>{% endfor %}</tbody></table></div>{% include 'anticheat/pagination.html' with entries=players %}</section>
-{% if recent %}<section class="panel"><div class="section-head"><h2>Последние подключения</h2></div>{% include 'anticheat/connections.html' with history=recent show_player=True %}</section>{% endif %}
+{% extends 'anticheat/base.html' %}
+{% load tz %}
+{% block viewer %}
+<h1>Античит</h1>
+<form class="search" method="get">
+    <label class="sr-only" for="search">SteamID или ник</label>
+    <input id="search" type="search" name="q" value="{{ query }}" maxlength="128" placeholder="SteamID или ник игрока">
+    <button class="primary">Найти</button>
+    {% if query %}<a href="{% url 'anticheat:index' %}">Сбросить</a>{% endif %}
+</form>
+
+{% if query %}
+    <section class="panel" aria-labelledby="search-results">
+        <div class="section-head"><h2 id="search-results">Результаты поиска</h2></div>
+        <ul class="review-list" role="list">
+            {% for player in players %}
+                <li><a class="review-row" href="{% url 'anticheat:player' player.id %}">
+                    <span class="review-player">
+                        {% include 'community/player_card.html' with name=player.latest_name|default:player.steamid only %}
+                        <small class="mono">{{ player.steamid }}</small>
+                    </span>
+                    <span>{{ player.connections }} сесс.</span>
+                    {% include 'community/icon.html' with name='arrow' only %}
+                </a></li>
+            {% empty %}
+                <li class="empty">Ничего не найдено. Попробуйте SteamID или прежний ник.</li>
+            {% endfor %}
+        </ul>
+        {% include 'anticheat/pagination.html' with entries=players %}
+    </section>
+{% else %}
+    <section class="panel" aria-labelledby="recent-detections">
+        <div class="section-head"><h2 id="recent-detections">Последние детекты</h2></div>
+        <ul class="review-list" role="list">
+            {% for decision in detections %}
+                <li><a class="review-row detection-row" href="{% url 'anticheat:segment' decision.segment_id %}?detected=1{% if decision.match_id %}&amp;match={{ decision.match_id }}{% endif %}">
+                    <span class="review-player">
+                        {% include 'community/player_card.html' with name=decision.segment.name|default:decision.segment.steamid|default:"Игрок" only %}
+                        <small>{% if decision.match_id %}Матч #{{ decision.match_id }}{% else %}Матч —{% endif %}</small>
+                    </span>
+                    <span class="badge bad">{{ decision.get_kind_display }}</span>
+                    <time>{{ decision.segment.started_at|timezone:'Europe/Moscow'|date:'d.m.Y H:i'|default:'—' }}</time>
+                    {% include 'community/icon.html' with name='arrow' only %}
+                </a></li>
+            {% empty %}
+                <li class="empty">Детектов пока нет.</li>
+            {% endfor %}
+        </ul>
+    </section>
+    <section class="panel" aria-labelledby="recent-matches">
+        <div class="section-head">
+            <h2 id="recent-matches">Последние матчи</h2>
+            {% if demo %}<small>Демо</small>{% endif %}
+        </div>
+        <ul class="review-list" role="list">
+            {% for match in matches %}
+                <li><a class="review-row detection-row" href="{% url 'anticheat:match' match.id %}">
+                    <span class="map-row-title">
+                        {% include 'anticheat/map_thumb.html' with map_name=match.map only %}
+                        <span><strong>{{ match.map }}</strong><small>Матч #{{ match.id }}</small></span>
+                    </span>
+                    <span class="tag{% if match.mode == 'Skill' or match.mode == 'Boost' %} tag-{{ match.mode|lower }}{% endif %}">{{ match.mode }}</span>
+                    <time datetime="{{ match.ended_at|date:'c' }}">{{ match.ended_at|timezone:'Europe/Moscow'|date:'d.m.Y H:i' }}</time>
+                    {% include 'community/icon.html' with name='arrow' only %}
+                </a></li>
+            {% empty %}
+                <li class="empty">{% if match_error %}История матчей сейчас недоступна.{% else %}Матчей нет.{% endif %}</li>
+            {% endfor %}
+        </ul>
+        {% if previous or following %}
+            <nav class="pagination" aria-label="Страницы матчей">
+                {% if previous %}<a href="?page={{ previous }}">← Новее</a>{% endif %}
+                {% if following %}<a href="?page={{ following }}">Старее →</a>{% endif %}
+            </nav>
+        {% endif %}
+    </section>
+{% endif %}
 {% endblock %}

@@ -1,1 +1,7 @@
-{% if entries.paginator.num_pages > 1 %}<nav class="pagination" aria-label="Страницы">{% if entries.has_previous %}<a href="?page={{ entries.previous_page_number }}&q={{ query|urlencode }}&detected={% if detected_only %}1{% endif %}">← Назад</a>{% endif %}<span class="muted">{{ entries.number }} / {{ entries.paginator.num_pages }}</span>{% if entries.has_next %}<a href="?page={{ entries.next_page_number }}&q={{ query|urlencode }}&detected={% if detected_only %}1{% endif %}">Далее →</a>{% endif %}</nav>{% endif %}
+{% if entries.paginator.num_pages > 1 %}
+    <nav class="pagination" aria-label="Страницы">
+        {% if entries.has_previous %}<a{% if preserve_stats %} data-stats-context{% endif %} href="{% querystring page=entries.previous_page_number %}">← Назад</a>{% endif %}
+        <span class="muted">{{ entries.number }} / {{ entries.paginator.num_pages }}</span>
+        {% if entries.has_next %}<a{% if preserve_stats %} data-stats-context{% endif %} href="{% querystring page=entries.next_page_number %}">Далее →</a>{% endif %}
+    </nav>
+{% endif %}

@@ -1,4 +1,10 @@
-{% load static %}<!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{% block title %}Античит{% endblock %} · Beauty</title><link rel="stylesheet" href="{% static 'anticheat/site.css' %}"></head>
-<body><header><a class="brand" href="{% url 'anticheat:index' %}">BEAUTY<span>ANTICHEAT</span></a><nav>{% if user.is_authenticated %}<span>{{ user.username }}</span><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="quiet">Выйти</button></form>{% else %}<span>Закрытый раздел</span>{% endif %}</nav></header>
-<main>{% block content %}{% endblock %}</main><footer>Beauty · Доступ только администраторам · Время: Москва</footer></body></html>
+{% extends "community/base.html" %}
+{% load static %}
+
+{% block title %}Beauty — античит{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{% static 'anticheat/site.css' %}">{% endblock %}
+{% block main_class %}ac-main{% endblock %}
+
+{% block content %}
+    {% block viewer %}{% endblock %}
+{% endblock %}

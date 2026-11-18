@@ -1,0 +1,40 @@
+{% extends 'anticheat/base.html' %}
+{% load tz %}
+{% block title %}Beauty — матч{% endblock %}
+{% block viewer %}
+<a class="back" href="{% url 'anticheat:index' %}">← Античит</a>
+{% if match_error %}
+    <h1>Матч недоступен</h1>
+    <p class="notice bad" role="alert">Не удалось загрузить данные матча.</p>
+{% else %}
+    <h1 class="map-row-title">{% include 'anticheat/map_thumb.html' with map_name=match.map only %}<span>{{ match.map }}</span></h1>
+    <p class="muted">Матч #{{ match.id }} · {{ match.mode }} · {{ match.started_at|timezone:'Europe/Moscow'|date:'d.m.Y H:i' }} – {{ match.ended_at|timezone:'Europe/Moscow'|date:'H:i' }}{% if demo %} · Демо{% endif %}</p>
+    <section class="panel" aria-labelledby="participants">
+        <div class="section-head"><h2 id="participants">Сессии участников</h2></div>
+        {% if not has_match_server %}<p class="empty">Сервер для сопоставления сессий не настроен.</p>{% endif %}
+        <ul class="review-list participants" role="list">
+            {% for player in participants %}
+                <li>
+                    <div class="participant-name">
+                        <strong>{{ player.name|default:player.steamid }}</strong>
+                        <small class="mono">{{ player.steamid }}</small>
+                    </div>
+                    <div class="participant-sessions">
+                        {% for session in player.sessions %}
+                            <a class="session-link" href="{% url 'anticheat:segment' session.id %}?match={{ match.id }}">
+                                <span>{{ session.started_at|timezone:'Europe/Moscow'|date:'H:i:s' }} – {{ session.ended_at|timezone:'Europe/Moscow'|date:'H:i:s'|default:'…' }}</span>
+                                {% if session.detections %}<span class="badge bad">Детектов: {{ session.detections }}</span>{% endif %}
+                                {% include 'community/icon.html' with name='arrow' only %}
+                            </a>
+                        {% empty %}
+                            <span class="muted">Сессий нет</span>
+                        {% endfor %}
+                    </div>
+                </li>
+            {% empty %}
+                <li class="empty">Участники не записаны.</li>
+            {% endfor %}
+        </ul>
+    </section>
+{% endif %}
+{% endblock %}

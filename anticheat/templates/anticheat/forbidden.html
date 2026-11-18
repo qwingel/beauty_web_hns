@@ -1,0 +1,12 @@
+{% extends "anticheat/base.html" %}
+
+{% block title %}Beauty — нет доступа{% endblock %}
+{% block main_class %}ac-main auth-main{% endblock %}
+
+{% block viewer %}
+    <section class="profile-panel auth-card">
+        <h1>Нет доступа к античиту</h1>
+        <p class="profile-alternative">У этого аккаунта нет прав на просмотр.</p>
+        <a class="data-link" href="{% url 'home' %}">← На главную</a>
+    </section>
+{% endblock %}

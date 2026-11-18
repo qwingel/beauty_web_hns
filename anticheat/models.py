@@ -1,6 +1,7 @@
 import calendar
 from uuid import uuid4
 
+from django.conf import settings
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
@@ -103,6 +104,17 @@ class Summary(models.Model):
             models.UniqueConstraint(fields=["segment", "kind"], name="ac_summary_kind_unique"),
             models.CheckConstraint(condition=Q(kind__in=[0, 1]), name="ac_summary_kind_valid"),
         ]
+
+
+class SessionComment(models.Model):
+    segment = models.ForeignKey(Segment, on_delete=models.CASCADE, related_name="comments")
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
+    body = models.CharField(max_length=2000)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [models.Index(fields=["segment", "-created_at", "-id"], name="ac_session_comment_recent")]
 
 
 class Decision(models.Model):

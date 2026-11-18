@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.db import connection
 from django.test import Client, TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
@@ -56,7 +57,8 @@ class BeautyBansSourceTests(TransactionTestCase):
                 CREATE TABLE punishments_punishment (
                     id integer PRIMARY KEY, punishment_type text, target_name text, target_steam_id text,
                     reason text, issued_at timestamptz, expires_at timestamptz, duration integer,
-                    is_active boolean, server_id integer, admin_id integer
+                    is_active boolean, server_id integer, admin_id integer,
+                    unban_reason text DEFAULT '', unbanned_by_id integer
                 )
             """)
             cursor.execute("INSERT INTO servers_server VALUES (1, 'HNS')")
@@ -117,3 +119,64 @@ class BeautyBansSourceTests(TransactionTestCase):
         self.assertFalse(first["bans"][1]["active"])
         self.assertContains(response, "Permanent")
         self.assertNotContains(response, "Hidden mute")
+
+    def test_issuer_reviews_once_and_head_can_reverse_the_exact_ban(self):
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                INSERT INTO punishments_punishment VALUES
+                    (1, 'ban', 'Player', 'STEAM_0:1:123', 'Review', now(), NULL, 0, true, 1, 1),
+                    (2, 'ban', 'Player', 'STEAM_0:1:123', 'Separate ban', now(), NULL, 0, true, 1, 2)
+            """)
+        users = get_user_model().objects
+        player = users.create_user(username="player")
+        issuer = users.create_user(username="issuer", is_staff=True, beauty_bans_admin_id=1)
+        other = users.create_user(username="other", is_staff=True, beauty_bans_admin_id=2)
+        head = users.create_user(username="head", is_staff=True)
+        head.user_permissions.add(Permission.objects.get(
+            content_type__app_label="community", codename="review_all_unbantickets",
+        ))
+        ticket = UnbanTicket.objects.create(author=player, ban_id=1, subject="Appeal", message="Please review")
+        detail = reverse("unban-ticket", args=[ticket.pk])
+        review = reverse("unban-ticket-review", args=[ticket.pk])
+        approval = {"status": "approved", "version": 0}
+        with override_settings(BEAUTY_BANS_DATABASE_URL=self.dsn, BEAUTY_BANS_REVIEW_DATABASE_URL=self.dsn):
+            for user in (player, other):
+                self.client.force_login(user)
+                self.assertNotContains(self.client.get(detail), "Разбанить")
+                self.assertEqual(self.client.post(review, approval).status_code, 403)
+
+            self.client.force_login(issuer)
+            self.assertContains(self.client.get(detail), "Разбанить")
+            self.assertContains(self.client.get(detail), "Отклонить")
+            self.assertEqual(self.client.get(review).status_code, 405)
+            csrf_client = Client(enforce_csrf_checks=True)
+            csrf_client.force_login(issuer)
+            self.assertEqual(csrf_client.post(review, approval).status_code, 403)
+            self.assertRedirects(self.client.post(review, approval), detail)
+            ticket.refresh_from_db()
+            self.assertEqual((ticket.status, ticket.reviewed_by, ticket.review_version), ("approved", issuer, 1))
+            self.assertIsNotNone(ticket.reviewed_at)
+            self.assertNotContains(self.client.get(detail), "Отклонить")
+            self.assertEqual(self.client.post(review, {"status": "rejected", "version": 1}).status_code, 403)
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT is_active, unbanned_by_id FROM punishments_punishment ORDER BY id LIMIT 2")
+                self.assertEqual(cursor.fetchall(), [(False, 1), (True, None)])
+
+            self.client.force_login(head)
+            self.assertContains(self.client.get(detail), "Отклонить")
+            stale = self.client.post(review, {"status": "rejected", "version": 0})
+            self.assertContains(stale, "Тикет уже изменился", status_code=409)
+            self.assertRedirects(self.client.post(review, {"status": "rejected", "version": 1}), detail)
+            ticket.refresh_from_db()
+            self.assertEqual((ticket.status, ticket.reviewed_by, ticket.review_version), ("rejected", head, 2))
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT is_active, unban_reason FROM punishments_punishment WHERE id = 1")
+                self.assertEqual(cursor.fetchone(), (True, ""))
+
+            self.assertRedirects(self.client.post(review, {"status": "approved", "version": 2}), detail)
+            with connection.cursor() as cursor:
+                cursor.execute("UPDATE punishments_punishment SET expires_at = now() WHERE id = 1")
+            self.assertRedirects(self.client.post(review, {"status": "rejected", "version": 3}), detail)
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT is_active FROM punishments_punishment WHERE id = 1")
+                self.assertEqual(cursor.fetchone(), (False,))

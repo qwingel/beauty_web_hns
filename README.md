@@ -13,6 +13,19 @@ access to the columns queried in `community/ban_source.py`.
 Unban tickets are stored in the site's database. Signed-in users can read
 tickets and submit an appeal by selecting a ban found by SteamID.
 The ticket records the signed-in author separately from the SteamID lookup.
+Moderators review tickets on the ticket detail page. A site superuser links
+each staff moderator to the issuer's Beauty Bans admin ID in Django admin.
+Linked staff can decide open tickets for bans they issued. Staff with
+`community.review_all_unbantickets` can review any ticket and revise decisions.
+
+Set `BEAUTY_BANS_REVIEW_DATABASE_URL` to a separate PostgreSQL role on the same
+Beauty Bans database to enable decisions. Give it SELECT on the columns read by
+`community/ticket_review.py` and UPDATE on `is_active`, `unban_reason`, and
+`unbanned_by_id` in `punishments_punishment`. The read-only role also needs
+SELECT on the columns used by the ticket detail query. Approval lifts the exact
+ban on the ticket. Reversing approval restores it only while its original term
+is still valid and this ticket is recorded as the reason it was lifted.
+
 ## Structure
 
 - `config/`: shared Django configuration, URL routing, WSGI and ASGI entry points.

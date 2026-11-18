@@ -13,5 +13,43 @@
             · <time datetime="{{ ticket.created_at|date:'c' }}">{{ ticket.created_at|timezone:'Europe/Moscow'|date:"d.m.Y H:i" }}</time>
         </p>
         <p class="ticket-message">{{ ticket.message|linebreaksbr }}</p>
+        {% if ban %}
+            <section class="ticket-ban" aria-labelledby="ticket-ban-heading">
+                <div class="card-title">
+                    <h3 id="ticket-ban-heading">Бан #{{ ban.id }}</h3>
+                    {% if ban.active %}
+                        <span class="tag tag-ban-active">Активен</span>
+                    {% else %}
+                        <span class="tag">Неактивен</span>
+                    {% endif %}
+                </div>
+                <p>{{ ban.target_name }} <span class="page-caption">{{ ban.target_steam_id }}</span></p>
+                <p class="page-caption">{{ ban.server_name }}{% if ban.admin_name %} · {{ ban.admin_name }}{% endif %}</p>
+                <p>{{ ban.reason|linebreaksbr }}</p>
+            </section>
+        {% endif %}
+        {% if ticket.reviewed_at %}
+            <p class="page-caption ticket-reviewed">
+                Решение от <time datetime="{{ ticket.reviewed_at|date:'c' }}">{{ ticket.reviewed_at|timezone:'Europe/Moscow'|date:"d.m.Y H:i" }}</time>
+                {% if ticket.reviewed_by %} · {{ ticket.reviewed_by.get_username }}{% endif %}
+            </p>
+        {% endif %}
+        {% if review_error %}
+            <p class="ticket-review-error" role="alert">{{ review_error }}</p>
+        {% elif review_disabled %}
+            <p class="page-caption ticket-reviewed">Рассмотрение временно недоступно.</p>
+        {% endif %}
+        {% if can_review %}
+            <form class="ticket-review" method="post" action="{% url 'unban-ticket-review' ticket.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="version" value="{{ ticket.review_version }}">
+                {% if ticket.status != 'approved' %}
+                    <button class="connect" type="submit" name="status" value="approved">Разбанить</button>
+                {% endif %}
+                {% if ticket.status != 'rejected' %}
+                    <button class="control" type="submit" name="status" value="rejected">Отклонить</button>
+                {% endif %}
+            </form>
+        {% endif %}
     </article>
 {% endblock %}

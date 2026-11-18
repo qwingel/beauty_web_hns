@@ -491,6 +491,14 @@ a.player-card:is(:hover, :focus-visible), :is(.account-player, .review-row):is(:
 .ticket-title, .ticket-detail { min-width: 0; overflow-wrap: anywhere; }
 .ticket-title :is(small, time) { margin-top: var(--space-1); }
 .ticket-message { margin-block-start: var(--space-4); }
+.ticket-ban {
+    display: grid; gap: var(--space-2); margin-block-start: var(--space-5); padding-block-start: var(--space-4);
+    border-block-start: 1px solid var(--md-sys-color-outline-variant);
+}
+.ticket-ban :is(h3, p) { margin: 0; }
+.ticket-review { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-block-start: var(--space-4); }
+.ticket-reviewed, .ticket-review-error { margin-block-start: var(--space-4); }
+.ticket-review-error { color: var(--md-sys-color-error); }
 .ticket-create { max-inline-size: 680px; }
 .ticket-lookup, .ticket-submit { display: grid; gap: var(--space-2); margin-top: var(--space-4); }
 .ticket-lookup-controls { display: flex; flex-wrap: wrap; gap: var(--space-2); }

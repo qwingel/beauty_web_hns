@@ -2,15 +2,18 @@ import logging
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
+from django.http import Http404, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_http_methods, require_safe
+from django.views.decorators.http import require_http_methods, require_POST, require_safe
 
 from .ban_source import BanSourceUnavailable, load_bans
 from .forms import BanLookupForm, UnbanTicketForm
 from .models import UnbanTicket
 from .steam import steam_id_variants
+from .ticket_review import ReviewConflict, ReviewForbidden, can_review, review_ticket, ticket_ban
 
 LOG = logging.getLogger(__name__)
 
@@ -41,8 +44,46 @@ def unban_tickets(request):
 @login_required(login_url="profile-login")
 @require_safe
 def unban_ticket(request, ticket_id):
-    ticket = get_object_or_404(UnbanTicket.objects.select_related("author"), pk=ticket_id)
-    return render(request, "community/unban_ticket.html", {"ticket": ticket})
+    return render_ticket(request, ticket_id)
+
+
+def render_ticket(request, ticket_id, *, error="", status=200):
+    ticket = get_object_or_404(UnbanTicket.objects.select_related("author", "reviewed_by"), pk=ticket_id)
+    try:
+        ban = ticket_ban(ticket.ban_id)
+    except BanSourceUnavailable:
+        ban = None
+    allowed = can_review(request.user, ticket, ban)
+    writable = bool(settings.BEAUTY_BANS_REVIEW_DATABASE_URL)
+    return render(request, "community/unban_ticket.html", {
+        "ticket": ticket, "ban": ban, "review_error": error,
+        "review_disabled": allowed and not writable, "can_review": allowed and writable,
+    }, status=status)
+
+
+@never_cache
+@login_required(login_url="profile-login")
+@require_POST
+def review_unban_ticket(request, ticket_id):
+    status = request.POST.get("status")
+    try:
+        version = int(request.POST.get("version", ""))
+    except ValueError:
+        version = -1
+    if version < 0 or status not in (UnbanTicket.Status.APPROVED, UnbanTicket.Status.REJECTED):
+        return HttpResponseBadRequest("Некорректное решение.")
+    try:
+        review_ticket(ticket_id, request.user, status, version)
+    except UnbanTicket.DoesNotExist as error:
+        raise Http404 from error
+    except ReviewForbidden as error:
+        raise PermissionDenied from error
+    except ReviewConflict as error:
+        return render_ticket(request, ticket_id, error=str(error), status=409)
+    except BanSourceUnavailable:
+        LOG.warning("Beauty Bans review source unavailable")
+        return render_ticket(request, ticket_id, error="Не удалось рассмотреть тикет. Beauty Bans недоступен.", status=503)
+    return redirect("unban-ticket", ticket_id=ticket_id)
 
 
 @never_cache

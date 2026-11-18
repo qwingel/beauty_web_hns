@@ -14,11 +14,18 @@ class UnbanTicket(models.Model):
     message = models.TextField()
     status = models.CharField(max_length=8, choices=Status, default=Status.OPEN)
     created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="reviewed_unban_tickets",
+    )
+    review_version = models.PositiveIntegerField(default=0)
 
     class Meta:
         ordering = ("-created_at", "-pk")
         verbose_name = "Тикет на разбан"
         verbose_name_plural = "Тикеты на разбан"
+        permissions = [("review_all_unbantickets", "Can review and revise any unban ticket")]
 
     def __str__(self):
         return self.subject

@@ -15,6 +15,7 @@ urlpatterns = [
     path("bans/tickets/", ban_views.unban_tickets, name="unban-tickets"),
     path("bans/tickets/new/", ban_views.create_unban_ticket, name="unban-ticket-create"),
     path("bans/tickets/<int:ticket_id>/", ban_views.unban_ticket, name="unban-ticket"),
+    path("bans/tickets/<int:ticket_id>/review/", ban_views.review_unban_ticket, name="unban-ticket-review"),
     path("players/<slug:nickname>/", community.player_profile, name="player-profile"),
     path("about/", TemplateView.as_view(template_name="community/about.html"), name="about"),
     path("profile/", community.profile, name="profile"),

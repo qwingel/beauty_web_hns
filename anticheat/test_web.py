@@ -5,14 +5,14 @@ import tempfile
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Permission
 from django.core.management import call_command
 from django.test import Client, TransactionTestCase, override_settings
 from django.urls import reverse
 
 from .archives import load_validator
 from .models import Archive, Player, Segment, Server, SessionComment
-from .views import PERMISSIONS
+from community.ban_access import BanAccess
+
 from .worker import Worker
 
 
@@ -49,9 +49,14 @@ class WebTests(TransactionTestCase):
         Worker(self.validator, server.id, spool, self.root / "archives").run_once()
         self.segment = Segment.objects.get()
         self.player = self.segment.player
-        self.user = get_user_model().objects.create_user(username="reviewer", password="example-password", is_staff=True)
-        codenames = [permission.split(".")[1] for permission in PERMISSIONS]
-        self.user.user_permissions.set(Permission.objects.filter(content_type__app_label="anticheat", codename__in=codenames))
+        self.user = get_user_model().objects.create_user(
+            username="reviewer", password="example-password", steam_id="76561197960265975",
+        )
+        access = patch("community.ban_access.lookup_access", side_effect=lambda user: (
+            BanAccess(1, "админ") if getattr(user, "steam_id", None) else None
+        ))
+        access.start()
+        self.addCleanup(access.stop)
         self.urls = [reverse("anticheat:index"), reverse("anticheat:player", args=[self.player.id]),
                      reverse("anticheat:segment", args=[self.segment.id]), reverse("anticheat:windows", args=[self.segment.id]),
                      reverse("anticheat:match", args=[1042]), reverse("anticheat:segment", args=[self.segment.id]) + "?tab=patterns",
@@ -64,23 +69,30 @@ class WebTests(TransactionTestCase):
                 self.assertEqual(response.status_code, 302)
                 self.assertTrue(response.url.startswith("/anticheat/login/"))
 
-    def test_staff_without_permissions_and_regular_users_are_forbidden(self):
+    def test_users_without_beauty_bans_access_are_forbidden(self):
         other = get_user_model().objects.create_user(username="other", is_staff=True)
         self.client.force_login(other)
         for url in self.urls:
             self.assertEqual(self.client.get(url).status_code, 403)
-        self.user.is_staff = False
+        self.user.steam_id = None
         self.user.save()
         self.client.force_login(self.user)
         self.assertEqual(self.client.get(self.urls[0]).status_code, 403)
 
     def test_all_pages_render_and_are_not_cacheable(self):
         self.client.force_login(self.user)
-        for url in self.urls:
-            response = self.client.get(url)
-            self.assertEqual(response.status_code, 200)
-            self.assertIn("no-store", response["Cache-Control"])
-            self.assertNotContains(response, "<script>nick</script>")
+        match = {
+            "id": 1042, "map": self.segment.journal.map_name, "mode": "Skill",
+            "started_at": self.segment.started_at, "ended_at": self.segment.ended_at,
+            "participants": [{"name": self.segment.name, "steamid": self.player.steamid}],
+        }
+        with patch("anticheat.views.match_by_id", return_value=match):
+            for url in self.urls:
+                with self.subTest(url=url):
+                    response = self.client.get(url)
+                    self.assertEqual(response.status_code, 200)
+                    self.assertIn("no-store", response["Cache-Control"])
+                    self.assertNotContains(response, "<script>nick</script>")
 
     def test_search_by_steamid_and_name(self):
         self.client.force_login(self.user)
@@ -218,18 +230,16 @@ class WebTests(TransactionTestCase):
                 self.assertNotContains(self.client.get(reverse("anticheat:match", args=[1042])), self.urls[2])
 
     def test_latest_detection_only_shows_an_unambiguous_match(self):
-        match = {
-            "id": 1042, "map": self.segment.journal.map_name,
-            "started_at": self.segment.started_at, "ended_at": self.segment.ended_at,
-            "participants": [{"steamid": self.player.steamid}],
-        }
         self.client.force_login(self.user)
-        with override_settings(AC_MATCH_SERVER_ID=str(self.segment.journal.server_id), AC_MATCH_DATABASE_URL=""):
-            with patch("anticheat.match_history.demo_history", return_value=[match]):
+        with override_settings(AC_MATCH_SERVER_ID=str(self.segment.journal.server_id), AC_MATCH_DATABASE_URL="mysql://localhost/stats"):
+            with patch("anticheat.views.history", return_value=([], None, None)), patch("anticheat.match_history.stats_cursor") as source:
+                cursor = source.return_value.__enter__.return_value
+                cursor.fetchall.return_value = [{"id": 1042}]
                 response = self.client.get(self.urls[0])
                 self.assertContains(response, 'detected=1&amp;match=1042')
                 self.assertContains(response, 'class="avatar"')
-            with patch("anticheat.match_history.demo_history", return_value=[match, {**match, "id": 1043}]):
+                self.assertEqual(cursor.execute.call_args.args[1][0], self.player.steamid)
+                cursor.fetchall.return_value = [{"id": 1042}, {"id": 1043}]
                 self.assertContains(self.client.get(self.urls[0]), "Матч —")
 
     def test_corrupt_archive_is_rejected_without_exposing_path(self):

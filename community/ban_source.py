@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from math import ceil
 
 import psycopg
@@ -13,6 +14,21 @@ PAGE_SIZE = 30
 
 class BanSourceUnavailable(Exception):
     pass
+
+
+@contextmanager
+def ban_cursor(dsn, *, read_only):
+    if not dsn:
+        raise BanSourceUnavailable
+    options = "-c statement_timeout=4000 -c lock_timeout=3000"
+    if read_only:
+        options += " -c default_transaction_read_only=on"
+    try:
+        with psycopg.connect(dsn, connect_timeout=3, options=options, row_factory=dict_row) as connection:
+            with connection.cursor() as cursor:
+                yield cursor
+    except (psycopg.Error, ValueError) as error:
+        raise BanSourceUnavailable from error
 
 
 def load_bans(raw_page, *, query="", steam_ids=()):

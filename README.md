@@ -1,22 +1,27 @@
 # Beauty website
 
-Django website for the Beauty CS 1.6 community. Anticheat is one private app,
-not the boundary of the whole website. Planned sections are player profiles and
-statistics, bans, unban tickets, leaderboards, server monitoring and mix history.
-The public homepage is available at `/` with demo data. Set
+Django website for the Beauty CS 1.6 community. It shows player profiles,
+rankings, mix history, bans and appeals. The anticheat viewer is private. Set
 `GAME_SERVER_ADDRESS` to the public game server's `host:port` to enable Steam
 connection.
 
 The public ban list at `/bans/` reads Beauty Bans through
 `BEAUTY_BANS_DATABASE_URL`. Use a PostgreSQL read-only account with SELECT
 access to the columns queried in `community/ban_source.py`.
+Set `COMMUNITY_BANS_PREFIX=banlist` to use `/banlist/` when the legacy panel
+is already mounted at `/bans/`.
 Unban tickets are stored in the site's database. Signed-in users can read
-tickets and submit an appeal by selecting a ban found by SteamID.
-The ticket records the signed-in author separately from the SteamID lookup.
-Moderators review tickets on the ticket detail page. A site superuser links
-each staff moderator to the issuer's Beauty Bans admin ID in Django admin.
-Linked staff can decide open tickets for bans they issued. Staff with
-`community.review_all_unbantickets` can review any ticket and revise decisions.
+tickets. The appeal form loads bans by the verified SteamID of the signed-in
+account and accepts appeals for those bans.
+Set `STEAM_LOGIN_ORIGIN` to the site's canonical HTTPS origin for Steam
+OpenID sign-in and `BEAUTY_BANS_SERVER_ID` to the server ID in Beauty Bans.
+The site reads active, unexpired group assignments on that server for the
+verified SteamID. Groups `Владелец`, `Гл. админ`, `Модератор`, and `Админ`
+can use the anticheat viewer. The first three can review any appeal and revise
+decisions. Members of `Админ` can decide open appeals for bans they issued.
+Both Beauty Bans roles need SELECT on the columns used by
+`community/ban_access.py`. Steam sign-in creates an account keyed by SteamID64.
+Access to Django's technical `/admin/` still requires a Django staff account.
 
 Set `BEAUTY_BANS_REVIEW_DATABASE_URL` to a separate PostgreSQL role on the same
 Beauty Bans database to enable decisions. Give it SELECT on the columns read by
@@ -29,27 +34,28 @@ is still valid and this ticket is recorded as the reason it was lifted.
 ## Structure
 
 - `config/`: shared Django configuration, URL routing, WSGI and ASGI entry points.
-- `accounts/`: site accounts, currently standard Django login and permissions.
-  The custom User model leaves room for Steam login later. Telemetry identities
-  are separate from site accounts; there is no automatic account linking.
+- `accounts/`: site accounts and Steam OpenID sign-in.
 - `community/`: public homepage and shared community layout.
 - `anticheat/`: PostgreSQL models/migrations, read-only telemetry administration,
   and the external archive worker as a Django management command.
 - `deploy/`: example systemd unit for the worker.
 
 The foundation uses Django 5.2 LTS, PostgreSQL 14+ and Python 3.10+.
-Steam login and archive expiration are not implemented.
+Archive expiration is not implemented.
 Private S3-compatible uploads are implemented with streamed read-back verification.
 There is no separate API yet. `/anticheat/` is the private viewer. `/admin/` uses Django login and staff/model
 permissions; anonymous and ordinary site users cannot inspect anticheat data.
 Telemetry is read-only in the admin. Servers can be configured by administrators.
 
-The anticheat match list can read the game's SQL stats using the optional
+The public match list, rankings, profiles and anticheat match list read the game's MariaDB stats using the optional
 `matches` extra (`pip install '.[matches]'`). Set `AC_MATCH_DATABASE_URL` to a
 `mysql://user:password@host:3306/database` URL for a read-only account on
-`beauty_mix_matches` and `beauty_mix_match_players`, and set `AC_MATCH_SERVER_ID`
-to the UUID of the corresponding anticheat server. Without a stats URL the
-viewer lists the demo matches.
+`beauty_mix_matches`, `beauty_mix_match_players` and `beauty_mix_players`.
+The homepage's all-time player count also needs SELECT on
+`beauty_player_info.player_steamid`.
+Set `AC_MATCH_SERVER_ID` to the UUID of the corresponding anticheat server,
+`MIX_CALIBRATION_MATCHES` to the game's `mix_pts_calib_matches` value and
+`MIX_RANKS_FILE` to the game's shared `ranks.ini` to show named ranks.
 The stats source stores active play time. The viewer infers the match interval
 from that duration and the finish timestamp, so gaps between rounds can exclude
 some early connections.
@@ -268,11 +274,9 @@ window lists and a command table with the anchor highlighted. Raw recorded field
 include positions, view angles and velocity vectors. Displayed XY speeds are
 derived from recorded vectors; no movement re-simulation or new detection runs.
 
-All viewer pages require an active staff account with every view permission for
-Player, Segment, Summary, Decision, Archive and Journal in `anticheat`. A superuser
-with staff status also qualifies. Normal authenticated accounts and staff without
-these permissions receive 403. Login and logout use Django authentication; logout
-requires POST/CSRF. Private responses are non-cacheable, and production cookies
+All viewer pages require an active Beauty Bans group with viewer access.
+Authenticated users without an eligible assignment receive 403. Public sign-in
+uses Steam when configured. Logout requires POST/CSRF. Private responses are non-cacheable, and production cookies
 are secure. No public registration or public archive links are exposed.
 
 The viewer hashes local archives before reading them. If a local archive is

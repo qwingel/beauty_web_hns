@@ -9,7 +9,7 @@
             <span class="tag">{{ ticket.get_status_display }}</span>
         </div>
         <p class="page-caption">
-            Бан #{{ ticket.ban_id }}{% if ticket.author %} · {{ ticket.author.get_username }}{% endif %}
+            Бан #{{ ticket.ban_id }}{% if ticket.author %} · {{ ticket.author.public_name }}{% endif %}
             · <time datetime="{{ ticket.created_at|date:'c' }}">{{ ticket.created_at|timezone:'Europe/Moscow'|date:"d.m.Y H:i" }}</time>
         </p>
         <p class="ticket-message">{{ ticket.message|linebreaksbr }}</p>
@@ -31,7 +31,7 @@
         {% if ticket.reviewed_at %}
             <p class="page-caption ticket-reviewed">
                 Решение от <time datetime="{{ ticket.reviewed_at|date:'c' }}">{{ ticket.reviewed_at|timezone:'Europe/Moscow'|date:"d.m.Y H:i" }}</time>
-                {% if ticket.reviewed_by %} · {{ ticket.reviewed_by.get_username }}{% endif %}
+                {% if ticket.reviewed_by %} · {{ ticket.reviewed_by.public_name }}{% endif %}
             </p>
         {% endif %}
         {% if review_error %}

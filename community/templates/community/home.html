@@ -6,38 +6,36 @@
 {% block content %}
     <header class="home-heading">
         <h1>Beauty <span>Hide &amp; Seek</span></h1>
-        <span class="demo-note">Демонстрационные данные</span>
     </header>
-    <section class="monitor" aria-labelledby="server-heading">
+    <section class="monitor{% if matches.0.map != 'hns_floppytown' %} monitor-no-map{% endif %}" aria-labelledby="server-heading">
         <div class="server-card">
-            <div>
-                <p class="server-label"><span aria-hidden="true"></span>Сейчас играют</p>
-                <h2 id="server-heading" class="server-map">{{ server.map }}</h2>
-                <p class="server-mode">{{ server.mode }}</p>
-            </div>
-            <div class="server-occupancy">
-                <div class="section-heading">
-                    <span>Игроки на сервере</span>
-                    <strong>{{ server.players }} / {{ server.capacity }}</strong>
-                </div>
-                <meter min="0" max="{{ server.capacity }}" value="{{ server.players }}" aria-label="Заполненность сервера"></meter>
-            </div>
-            {% if server.address %}
-                <a class="connect" href="steam://connect/{{ server.address }}">{% include "community/icon.html" with name="play" only %} Подключиться</a>
+            {% with latest=matches.0 %}
+                {% if latest %}
+                    <div>
+                        <p class="server-label">Последний микс</p>
+                        <h2 id="server-heading" class="server-map">{{ latest.map }}</h2>
+                        <p class="server-mode">{{ latest.mode }}</p>
+                    </div>
+                {% else %}
+                    <h2 id="server-heading" class="server-map">Игровой сервер</h2>
+                {% endif %}
+            {% endwith %}
+            {% if server_address %}
+                <a class="connect" href="steam://connect/{{ server_address }}">{% include "community/icon.html" with name="play" only %} Подключиться</a>
             {% else %}
                 <button class="connect" type="button" disabled title="Адрес сервера не задан">{% include "community/icon.html" with name="play" only %} Подключиться</button>
                 <small>Адрес сервера не задан</small>
             {% endif %}
         </div>
-        {% if server.image %}
+        {% if matches.0.map == 'hns_floppytown' %}
             <figure class="map-frame">
-                <img src="{% static server.image %}" width="1920" height="1080" alt="Крыши и дворы {{ server.map }}" fetchpriority="high">
-                <figcaption><a href="{{ server.image_source }}">Кадр карты · GameBanana</a></figcaption>
+                <img src="{% static 'community/hns_floppytown.jpg' %}" width="1920" height="1080" alt="Крыши и дворы hns_floppytown" fetchpriority="high">
+                <figcaption><a href="https://gamebanana.com/mods/93209">Кадр карты · GameBanana</a></figcaption>
             </figure>
         {% endif %}
     </section>
 
-    <section class="data-section" aria-labelledby="stats-heading">
+    {% if metrics %}<section class="data-section" aria-labelledby="stats-heading">
         <h2 id="stats-heading">Статистика сервера</h2>
         <dl class="metrics">
             {% for metric in metrics %}
@@ -54,7 +52,7 @@
                 </div>
             {% endfor %}
         </dl>
-    </section>
+    </section>{% endif %}
 
     <section class="data-section" aria-labelledby="matches-heading">
         <div class="section-heading">

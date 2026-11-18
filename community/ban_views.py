@@ -9,8 +9,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods, require_POST, require_safe
 
+from .ban_access import request_access
 from .ban_source import BanSourceUnavailable, load_bans
-from .forms import BanLookupForm, UnbanTicketForm
+from .forms import UnbanTicketForm
 from .models import UnbanTicket
 from .steam import steam_id_variants
 from .ticket_review import ReviewConflict, ReviewForbidden, can_review, review_ticket, ticket_ban
@@ -53,7 +54,7 @@ def render_ticket(request, ticket_id, *, error="", status=200):
         ban = ticket_ban(ticket.ban_id)
     except BanSourceUnavailable:
         ban = None
-    allowed = can_review(request.user, ticket, ban)
+    allowed = can_review(request_access(request), ticket, ban)
     writable = bool(settings.BEAUTY_BANS_REVIEW_DATABASE_URL)
     return render(request, "community/unban_ticket.html", {
         "ticket": ticket, "ban": ban, "review_error": error,
@@ -91,16 +92,17 @@ def review_unban_ticket(request, ticket_id):
 @require_http_methods(["GET", "HEAD", "POST"])
 def create_unban_ticket(request):
     submitted = request.method == "POST"
-    params = request.POST if submitted else request.GET
-    lookup = BanLookupForm(params if submitted or "steam_id" in params else None)
+    steam_ids = steam_id_variants(request.user.steam_id or "")
     form = UnbanTicketForm(request.POST if submitted else None)
-    context = {"lookup": lookup, "form": form}
+    context = {"form": form}
     status = 400 if submitted else 200
-    if not settings.BEAUTY_BANS_DATABASE_URL:
+    if not steam_ids:
+        context["steam_required"] = True
+    elif not settings.BEAUTY_BANS_DATABASE_URL:
         context["source_disabled"] = True
-    elif lookup.is_valid():
+    else:
         try:
-            result = load_bans(request.GET.get("page"), steam_ids=steam_id_variants(lookup.cleaned_data["steam_id"]))
+            result = load_bans(request.GET.get("page"), steam_ids=steam_ids)
         except BanSourceUnavailable:
             LOG.warning("Beauty Bans ticket lookup unavailable")
             context["source_unavailable"] = True
@@ -119,5 +121,5 @@ def create_unban_ticket(request):
                     message=form.cleaned_data["message"],
                 )
                 return redirect("unban-ticket", ticket_id=ticket.pk)
-            context.update(result, steam_id=lookup.cleaned_data["steam_id"])
+            context.update(result)
     return render(request, "community/unban_ticket_create.html", context, status=status)

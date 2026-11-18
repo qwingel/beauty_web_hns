@@ -11,6 +11,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods, require_safe
 
+from community.ban_access import player_roles, request_access
+
 from .archives import read_item, records
 from .forms import SessionCommentForm
 from .match_history import MatchSourceUnavailable, detection_match_ids, history, match_by_id, match_sessions
@@ -19,7 +21,6 @@ from .session_stats import session_statistics
 from .viewer import archive_path
 
 LOG = logging.getLogger(__name__)
-PERMISSIONS = tuple(f"anticheat.view_{model}" for model in ("player", "segment", "summary", "decision", "archive", "journal"))
 
 
 def ac_access(view):
@@ -27,7 +28,8 @@ def ac_access(view):
     @login_required
     @wraps(view)
     def wrapped(request, *args, **kwargs):
-        if not request.user.is_active or not request.user.is_staff or not request.user.has_perms(PERMISSIONS):
+        access = request_access(request)
+        if not access or not access.anticheat:
             return render(request, "anticheat/forbidden.html", status=403)
         return view(request, *args, **kwargs)
     return wrapped
@@ -50,7 +52,10 @@ def index(request):
         detections = list(Decision.objects.filter(payload__detect=1).select_related("segment__journal").order_by(
             "-segment__started_at", "-sequence", "-pk",
         )[:10])
-        context = {"detections": detections, "demo": not settings.AC_MATCH_DATABASE_URL}
+        roles = player_roles(decision.segment.steamid for decision in detections)
+        for decision in detections:
+            decision.player_role = roles.get(decision.segment.steamid)
+        context = {"detections": detections}
         try:
             context["matches"], context["previous"], context["following"] = history(request.GET.get("page"))
         except MatchSourceUnavailable:
@@ -79,7 +84,11 @@ def index(request):
     players = players.annotate(
         last_seen=Max("segments__started_at"),
         connections=Count("segments", distinct=True)).order_by("-last_seen", "id")
-    return render(request, "anticheat/index.html", {"query": query, "players": page(request, players)})
+    entries = page(request, players)
+    roles = player_roles(player.steamid for player in entries)
+    for player in entries:
+        player.role = roles.get(player.steamid)
+    return render(request, "anticheat/index.html", {"query": query, "players": entries})
 
 
 @ac_access
@@ -99,7 +108,7 @@ def match_detail(request, match_id):
     ]
     return render(request, "anticheat/match.html", {
         "match": match, "participants": participants,
-        "demo": not settings.AC_MATCH_DATABASE_URL, "has_match_server": bool(settings.AC_MATCH_SERVER_ID),
+        "has_match_server": bool(settings.AC_MATCH_SERVER_ID),
     })
 
 

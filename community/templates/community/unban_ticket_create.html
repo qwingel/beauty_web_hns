@@ -4,41 +4,32 @@
     <a class="back-link data-link" href="{% url 'unban-tickets' %}">← Все тикеты</a>
     <section class="profile-panel ticket-create" aria-labelledby="new-ticket-heading">
         <h2 id="new-ticket-heading">Создать тикет</h2>
-        {% if source_disabled %}
+        {% if steam_required %}
+            <p class="page-caption">Чтобы создать тикет, войдите через Steam.</p>
+        {% elif source_disabled %}
             <p class="page-caption">Источник Beauty Bans не подключён.</p>
-        {% else %}
-            <form class="ticket-lookup" method="get">
-                <label for="{{ lookup.steam_id.id_for_label }}">{{ lookup.steam_id.label }}</label>
-                <div class="ticket-lookup-controls">
-                    {{ lookup.steam_id }}
-                    <button class="control" type="submit">Найти баны</button>
-                </div>
-                {{ lookup.steam_id.errors }}
-            </form>
-            {% if source_unavailable %}
-                <p class="page-caption" role="alert">Банлист временно недоступен.</p>
-            {% elif bans %}
-                {% if previous or following %}
-                    <nav class="moderation-pages" aria-label="Страницы банов аккаунта">
-                        {% if previous %}<a class="text-action" href="{% querystring steam_id=steam_id page=previous %}">← Новее</a>{% endif %}
-                        <span>Страница {{ number }}</span>
-                        {% if following %}<a class="text-action" href="{% querystring steam_id=steam_id page=following %}">Старее →</a>{% endif %}
-                    </nav>
-                {% endif %}
-                <form class="ticket-submit" method="post" action="{% url 'unban-ticket-create' %}{% querystring steam_id=steam_id page=number %}">
-                    {% csrf_token %}
-                    <input type="hidden" name="steam_id" value="{{ steam_id }}">
-                    <label for="{{ form.ban_id.id_for_label }}">{{ form.ban_id.label }}</label>
-                    <div class="select-field">{{ form.ban_id }}</div>
-                    {{ form.ban_id.errors }}
-                    <label for="{{ form.message.id_for_label }}">{{ form.message.label }}</label>
-                    {{ form.message }}
-                    {{ form.message.errors }}
-                    <button class="connect" type="submit">Отправить тикет</button>
-                </form>
-            {% elif steam_id %}
-                <p class="page-caption">По этому SteamID баны не найдены.</p>
+        {% elif source_unavailable %}
+            <p class="page-caption" role="alert">Банлист временно недоступен.</p>
+        {% elif bans %}
+            {% if previous or following %}
+                <nav class="moderation-pages" aria-label="Страницы банов аккаунта">
+                    {% if previous %}<a class="text-action" href="?page={{ previous }}">← Новее</a>{% endif %}
+                    <span>Страница {{ number }}</span>
+                    {% if following %}<a class="text-action" href="?page={{ following }}">Старее →</a>{% endif %}
+                </nav>
             {% endif %}
+            <form class="ticket-submit" method="post" action="{% url 'unban-ticket-create' %}?page={{ number }}">
+                {% csrf_token %}
+                <label for="{{ form.ban_id.id_for_label }}">{{ form.ban_id.label }}</label>
+                <div class="select-field">{{ form.ban_id }}</div>
+                {{ form.ban_id.errors }}
+                <label for="{{ form.message.id_for_label }}">{{ form.message.label }}</label>
+                {{ form.message }}
+                {{ form.message.errors }}
+                <button class="connect" type="submit">Отправить тикет</button>
+            </form>
+        {% else %}
+            <p class="page-caption">У этого Steam-аккаунта нет банов.</p>
         {% endif %}
     </section>
 {% endblock %}

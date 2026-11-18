@@ -5,12 +5,15 @@
 
 {% block content %}
     <a class="back-link data-link" href="{% url 'matches' %}">← Все матчи</a>
+    {% if stats_unavailable %}
+        <p class="data-empty">Данные матча временно недоступны.</p>
+    {% else %}
     <header class="match-intro{% if match.map == 'hns_floppytown' %} match-intro-with-map{% endif %}">
         {% if match.map == 'hns_floppytown' %}<img src="{% static 'community/hns_floppytown.jpg' %}" alt="" width="1920" height="1080">{% endif %}
         <div class="match-intro-content">
             <span class="tag tag-{{ match.mode|lower }}">{{ match.mode }}</span>
             <h1 class="subpage-title">{{ match.map }}</h1>
-            <p class="page-caption">Микс #{{ match.id }} · {{ match.date|date:"d E" }}, {{ match.time }} · {{ match.duration }} мин</p>
+            <p class="page-caption">Микс #{{ match.id }} · {{ match.date|date:"d E" }}, {{ match.time }} · {{ match.duration }}</p>
         </div>
     </header>
     {% if match.mvp %}
@@ -19,25 +22,23 @@
                 <h2 id="mvp-title">Лучший игрок</h2>
                 <span class="tag mvp-label">MVP</span>
             </div>
-            {% url 'player-profile' match.mvp as player_url %}
-            {% include "community/player_card.html" with name=match.mvp href=player_url only %}
-            {% if match.mvp_stats %}
+            {% url 'player-profile' match.mvp.profile_id as player_url %}
+            {% include "community/player_card.html" with name=match.mvp.name href=player_url player_role=match.mvp.role only %}
                 <dl class="mvp-stats">
-                    <div><dt>Время за TT</dt><dd>{{ match.mvp_stats.tt }}</dd></div>
-                    <div><dt>Удары</dt><dd>{{ match.mvp_stats.stabs }}</dd></div>
-                    <div><dt>Ослеплено</dt><dd>{{ match.mvp_stats.flashed }}</dd></div>
+                    <div><dt>Время за TT</dt><dd>{{ match.mvp.tt }}</dd></div>
+                    <div><dt>Удары</dt><dd>{{ match.mvp.stabs }}</dd></div>
+                    <div><dt>Ослеплено</dt><dd>{{ match.mvp.flashed }}</dd></div>
                 </dl>
-            {% endif %}
         </section>
     {% endif %}
     <section class="data-section" aria-labelledby="rosters-heading">
         <h2 id="rosters-heading">Составы и статистика</h2>
         <div class="match-rosters">
-            {% for captain, score, roster in match.teams %}
+            {% for team in match.teams %}
                 <div class="data-panel match-roster">
-                    <h3 id="roster-heading-{{ forloop.counter }}" class="panel-heading match-roster-heading{% if match.winner %} {% if captain == match.winner %}roster-heading-win{% else %}roster-heading-loss{% endif %}{% endif %}">
-                        <span>Команда {{ captain }}</span>
-                        {% if match.winner %}<span class="roster-result">{% if captain == match.winner %}Победа{% else %}Поражение{% endif %}</span>{% endif %}
+                    <h3 id="roster-heading-{{ forloop.counter }}" class="panel-heading match-roster-heading{% if match.winner %} {% if team.won %}roster-heading-win{% else %}roster-heading-loss{% endif %}{% endif %}">
+                        <span>Команда {{ team.captain }}</span>
+                        {% if match.winner %}<span class="roster-result">{% if team.won %}Победа{% else %}Поражение{% endif %}</span>{% endif %}
                     </h3>
                     <div class="table-scroll" tabindex="0" role="region" aria-labelledby="roster-heading-{{ forloop.counter }}">
                         <table class="data-table" aria-labelledby="roster-heading-{{ forloop.counter }}">
@@ -50,18 +51,18 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for player in roster %}
+                                {% for player in team.roster %}
                                     <tr>
                                         <th scope="row">
                                             <div class="roster-player">
-                                                {% url 'player-profile' player.name as player_url %}
-                                                {% include "community/player_card.html" with name=player.name href=player_url only %}
-                                                {% if player.name == captain or player.name == match.mvp %}
+                                                {% url 'player-profile' player.profile_id as player_url %}
+                                                {% include "community/player_card.html" with name=player.name href=player_url player_role=player.role only %}
+                                                {% if player.captain or player.mvp %}
                                                     <span class="roster-player-roles">
-                                                        {% if player.name == match.mvp %}
+                                                        {% if player.mvp %}
                                                             <span class="tag mvp-label" title="MVP"><span aria-hidden="true">★</span><span class="sr-only">MVP</span></span>
                                                         {% endif %}
-                                                        {% if player.name == captain %}
+                                                        {% if player.captain %}
                                                             <span class="tag" title="Капитан"><span aria-hidden="true">C</span><span class="sr-only">Капитан</span></span>
                                                         {% endif %}
                                                     </span>
@@ -69,7 +70,7 @@
                                             </div>
                                         </th>
                                         <td>{{ player.rating|floatformat:1 }}</td>
-                                        <td>{{ player.pts }}{% if player.pts_delta %} <small class="{% if player.pts_delta > 0 %}roster-pts-gain{% else %}roster-pts-loss{% endif %}">{{ player.pts_delta|stringformat:"+d" }}</small>{% endif %}</td>
+                                        <td>{{ player.pts|default_if_none:"—" }}{% if player.pts_delta %} <small class="{% if player.pts_delta > 0 %}roster-pts-gain{% else %}roster-pts-loss{% endif %}">{{ player.pts_delta|stringformat:"+d" }}</small>{% endif %}</td>
                                         <td>{{ player.tt }}</td>
                                         <td>{{ player.last }}</td>
                                         <td>{{ player.escapes }}</td>
@@ -86,10 +87,10 @@
                 </div>
                 {% if forloop.first and match.teams|length > 1 %}
                     <div class="match-result-panel" role="group" aria-label="Время выживания за TT">
-                        {% for score_captain, team_score, team_roster in match.teams %}
+                        {% for result in match.teams %}
                             {% if not forloop.first %}<span class="score-versus" aria-hidden="true">VS</span>{% endif %}
-                            <div class="score-team{% if not forloop.first %} score-team-right{% endif %}" role="group" aria-label="Команда {{ score_captain }}">
-                                <strong{% if score_captain == match.winner %} class="winning-time"{% endif %}>{{ team_score }}</strong>
+                            <div class="score-team{% if not forloop.first %} score-team-right{% endif %}" role="group" aria-label="Команда {{ result.captain }}">
+                                <strong{% if result.won %} class="winning-time"{% endif %}>{{ result.score }}</strong>
                             </div>
                         {% endfor %}
                     </div>
@@ -97,5 +98,5 @@
             {% endfor %}
         </div>
     </section>
-    <p class="demo-note">Демонстрационные данные</p>
+    {% endif %}
 {% endblock %}

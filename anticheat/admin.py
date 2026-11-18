@@ -1,5 +1,7 @@
 from django.contrib import admin
 
+from community.ban_access import request_access
+
 from .models import Archive, Decision, Journal, Player, Segment, Server, Summary
 
 
@@ -10,6 +12,10 @@ class ServerAdmin(admin.ModelAdmin):
 
 class TelemetryAdmin(admin.ModelAdmin):
     """Collected evidence is inspectable but cannot be edited in the admin."""
+
+    def has_view_permission(self, request, obj=None):
+        access = request_access(request)
+        return bool(access and access.anticheat and super().has_view_permission(request, obj))
 
     def has_add_permission(self, request):
         return False

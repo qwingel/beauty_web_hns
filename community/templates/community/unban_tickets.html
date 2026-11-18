@@ -13,7 +13,7 @@
                     <a class="history-row ticket-row" href="{% url 'unban-ticket' ticket.id %}">
                         <span class="ticket-title">
                             <strong>{{ ticket.subject }}</strong>
-                            <small>Бан #{{ ticket.ban_id }}{% if ticket.author %} · {{ ticket.author.get_username }}{% endif %}</small>
+                            <small>Бан #{{ ticket.ban_id }}{% if ticket.author %} · {{ ticket.author.public_name }}{% endif %}</small>
                             <time datetime="{{ ticket.created_at|date:'c' }}">{{ ticket.created_at|timezone:'Europe/Moscow'|date:"d.m.Y H:i" }}</time>
                         </span>
                         <span class="tag">{{ ticket.get_status_display }}</span>

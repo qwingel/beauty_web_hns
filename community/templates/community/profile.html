@@ -3,23 +3,30 @@
 {% block title %}Beauty — профиль{% endblock %}
 
 {% block content %}
-    <div class="profile-intro">
-        <span class="avatar" aria-hidden="true">{{ nickname|slice:":1" }}</span>
+    {% if nickname %}
+    <div class="profile-intro{% if player_role %} role-{{ player_role.tone }}{% endif %}">
+        {% include "community/avatar.html" with name=nickname avatar_url=avatar_url only %}
         <div class="profile-identity">
-            <h1 class="subpage-title">{{ nickname }}</h1>
+            <div class="profile-name">
+                <h1 class="subpage-title">{{ nickname }}</h1>
+                {% if player_role %}<span class="role-label">{{ player_role.label }}</span>{% endif %}
+            </div>
+            {% if steam_profile_id %}
+                <p class="page-caption"><a class="data-link" href="https://steamcommunity.com/profiles/{{ steam_profile_id }}/">Профиль Steam</a></p>
+            {% endif %}
             {% if player %}
-                <p class="page-caption">{{ player.steamid }}</p>
                 <dl class="profile-overview">
                     <div>
                         <dt>Последний микс</dt>
                         <dd>{% if latest_match %}<a href="{% url 'match' latest_match.id %}">{{ latest_match.date|date:"d.m.Y" }} · {{ latest_match.time }}</a>{% else %}—{% endif %}</dd>
                     </div>
-                    <div><dt>Капитанство</dt><dd>{{ captain_count }} · побед {{ captain_wins }}</dd></div>
+                    {% if captain_count != None %}<div><dt>Капитанство</dt><dd>{{ captain_count }} · побед {{ captain_wins }}</dd></div>{% endif %}
                 </dl>
             {% endif %}
         </div>
         {% if player %}<a class="text-action profile-ranking-link" href="{% url 'ranking' %}">Рейтинг {% include "community/icon.html" with name="arrow" only %}</a>{% endif %}
     </div>
+    {% endif %}
     {% if ratings %}
         <div class="cards-grid data-section">
             {% for rating in ratings %}
@@ -47,7 +54,7 @@
                     {% elif rating.winrate != None %}
                         <meter class="win-meter" min="0" max="100" value="{{ rating.winrate }}" aria-label="Процент побед"></meter>
                     {% endif %}
-                    {% if rating.stats.games %}
+                    {% if rating.has_samples %}
                         <dl class="profile-stats">
                             <div><dt>TT / матч</dt><dd>{{ rating.stats.tt }}</dd></div>
                             <div><dt>Last / матч</dt><dd>{{ rating.stats.last }}</dd></div>
@@ -56,9 +63,9 @@
                             <div><dt>Удары ножом</dt><dd>{{ rating.stats.stabs }}</dd></div>
                             <div><dt>TTK</dt><dd>{% if rating.stats.ttk != None %}{{ rating.stats.ttk|floatformat:1 }} с{% else %}—{% endif %}</dd></div>
                             <div><dt>Побеги</dt><dd>{{ rating.stats.escapes }}</dd></div>
-                            <div><dt>Выживаемость</dt><dd>{% if rating.stats.survived != None %}{{ rating.stats.survived }}%{% else %}—{% endif %}</dd></div>
+                            <div><dt>Выживаемость</dt><dd>{% if rating.stats.survived != None %}{{ rating.stats.survived|floatformat:0 }}%{% else %}—{% endif %}</dd></div>
                         </dl>
-                    {% else %}
+                    {% elif not rating.stats.games %}
                         <p class="page-caption">Рейтинговых матчей {{ rating.mode }} пока нет.</p>
                     {% endif %}
                 </section>
@@ -77,12 +84,12 @@
                         <a class="history-row profile-match-row" href="{% url 'match' match.id %}">
                             <span class="profile-match-name">
                                 <strong>{{ match.map }}</strong>
-                                {% if nickname == match.mvp %}<span class="tag mvp-label">MVP</span>{% endif %}
+                                {% if match.mvp %}<span class="tag mvp-label">MVP</span>{% endif %}
                                 <time datetime="{{ match.date|date:'Y-m-d' }}T{{ match.time }}">{{ match.date|date:"d.m.Y" }} · {{ match.time }}</time>
                             </span>
                             <span class="tag tag-{{ match.mode|lower }}">{{ match.mode }}</span>
-                            {% if not match.winner %}<span>Ничья</span>
-                            {% elif match.winner == match.captain %}<span class="roster-pts-gain">Победа</span>
+                            {% if match.won == None %}<span>Без победителя</span>
+                            {% elif match.won %}<span class="roster-pts-gain">Победа</span>
                             {% else %}<span class="roster-pts-loss">Поражение</span>{% endif %}
                             <span class="profile-match-value"><small>Оценка</small>{{ match.performance.rating|floatformat:1 }}</span>
                             <span class="profile-match-value"><small>PTS</small>{% if match.performance.pts_delta > 0 %}<span class="roster-pts-gain">{{ match.performance.pts_delta|stringformat:"+d" }}</span>{% elif match.performance.pts_delta < 0 %}<span class="roster-pts-loss">{{ match.performance.pts_delta }}</span>{% elif match.rated %}0{% else %}—{% endif %}</span>
@@ -91,13 +98,13 @@
                     </li>
                 {% endfor %}
             </ul>
+        {% elif stats_unavailable %}
+            <p class="data-empty">Статистика матчей временно недоступна.</p>
         {% else %}
             <p class="data-empty">Последних матчей пока нет.</p>
         {% endif %}
     </section>
-    {% if player %}
-        <p class="demo-note">Демонстрационные данные</p>
-    {% else %}
+    {% if own_profile %}
         <form class="data-section" method="post" action="{% url 'profile-logout' %}">
             {% csrf_token %}
             <button class="control" type="submit">Выйти</button>

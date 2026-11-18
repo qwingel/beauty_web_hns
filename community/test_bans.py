@@ -1,12 +1,12 @@
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Permission
 from django.db import connection
 from django.test import Client, TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 from psycopg.conninfo import make_conninfo
 
+from .ban_access import player_roles
 from .ban_source import BanSourceUnavailable, load_bans
 from .models import UnbanTicket
 
@@ -51,8 +51,14 @@ class BeautyBansSourceTests(TransactionTestCase):
             user=options["USER"], password=options["PASSWORD"],
         )
         with connection.cursor() as cursor:
-            cursor.execute("CREATE TABLE servers_server (id integer PRIMARY KEY, name text)")
-            cursor.execute("CREATE TABLE admins_admin (id integer PRIMARY KEY, name text, is_active boolean)")
+            cursor.execute("CREATE TABLE servers_server (id integer PRIMARY KEY, name text, is_active boolean DEFAULT true)")
+            cursor.execute("CREATE TABLE admins_admin (id integer PRIMARY KEY, name text, is_active boolean, steam_id text)")
+            cursor.execute("CREATE TABLE admins_admingroup (id integer PRIMARY KEY, name text)")
+            cursor.execute("""
+                CREATE TABLE admins_adminserver (
+                    admin_id integer, server_id integer, group_id integer, expires_at timestamptz
+                )
+            """)
             cursor.execute("""
                 CREATE TABLE punishments_punishment (
                     id integer PRIMARY KEY, punishment_type text, target_name text, target_steam_id text,
@@ -62,12 +68,37 @@ class BeautyBansSourceTests(TransactionTestCase):
                 )
             """)
             cursor.execute("INSERT INTO servers_server VALUES (1, 'HNS')")
-            cursor.execute("INSERT INTO admins_admin VALUES (1, 'Reviewer', true), (2, 'Other admin', true)")
+            cursor.execute("""
+                INSERT INTO admins_admin VALUES
+                    (1, 'Reviewer', true, 'STEAM_0:1:123'), (2, 'Other admin', true, 'STEAM_1:1:124'),
+                    (3, 'Moderator', true, '[U:1:251]'), (4, 'Watcher', true, 'STEAM_0:1:126')
+            """)
+            cursor.execute("INSERT INTO admins_admingroup VALUES (1, 'Админ'), (2, 'Модератор'), (3, 'Full watcher')")
+            cursor.execute("INSERT INTO admins_adminserver VALUES (1, 1, 1, NULL), (2, 1, 1, NULL), (3, 1, 2, NULL), (4, 1, 3, NULL)")
         self.addCleanup(self.drop_source)
 
     def drop_source(self):
         with connection.cursor() as cursor:
-            cursor.execute("DROP TABLE punishments_punishment, admins_admin, servers_server")
+            cursor.execute("DROP TABLE punishments_punishment, admins_adminserver, admins_admingroup, admins_admin, servers_server")
+
+    def test_player_role_badges_match_active_assignments_by_steam_id(self):
+        with connection.cursor() as cursor:
+            cursor.execute("UPDATE admins_adminserver SET expires_at = now() - interval '1 minute' WHERE admin_id = 2")
+        steam64 = "76561197960265975"
+        with override_settings(BEAUTY_BANS_DATABASE_URL=self.dsn, BEAUTY_BANS_SERVER_ID="1"):
+            self.assertEqual(player_roles([steam64, "STEAM_0:1:124", "STEAM_1:1:126", "BOT"]), {
+                steam64: {"label": "Админ", "tone": "admin"},
+                "STEAM_1:1:126": {"label": "Full watcher", "tone": "watcher"},
+            })
+            with patch("community.views.player_stats", return_value={
+                "player": {"name": "Game nickname", "steamid": "STEAM_0:1:123", "profile_id": steam64},
+                "captain_count": None,
+            }):
+                response = self.client.get(reverse("player-profile", args=[steam64]))
+            self.assertContains(response, 'class="profile-intro role-admin"')
+            self.assertContains(response, 'class="role-label">Админ</span>')
+            self.assertContains(response, f'href="https://steamcommunity.com/profiles/{steam64}/"')
+            self.assertNotContains(response, "STEAM_0:1:123")
 
     def test_reads_beauty_bans_tables_and_excludes_other_punishments(self):
         with connection.cursor() as cursor:
@@ -94,21 +125,27 @@ class BeautyBansSourceTests(TransactionTestCase):
             page = self.client.get(reverse("banlist"), {"q": "Player"})
             self.assertContains(page, "q=Player&amp;page=2")
 
-            user = get_user_model().objects.create_user(username="appealing-player")
+            user = get_user_model().objects.create_user(
+                username="appealing-player", steam_id="76561197960266371",
+            )
             self.client.force_login(user)
             create = reverse("unban-ticket-create")
-            form = self.client.get(create, {"steam_id": "STEAM_1:1:321"})
+            form = self.client.get(create)
             self.assertContains(form, "Почему нужно разбанить?")
             self.assertContains(form, "#32")
+            self.assertNotContains(form, 'name="steam_id"')
             self.assertNotContains(form, "Hidden mute")
-            forged = self.client.post(create, {"steam_id": "STEAM_0:1:321", "ban_id": 31, "message": "Appeal"})
+            redirected_lookup = self.client.get(create, {"steam_id": "STEAM_0:1:123"})
+            self.assertContains(redirected_lookup, "#32")
+            self.assertNotContains(redirected_lookup, "#31")
+            forged = self.client.post(create, {"steam_id": "STEAM_0:1:123", "ban_id": 31, "message": "Appeal"})
             self.assertEqual(forged.status_code, 400)
             self.assertFalse(UnbanTicket.objects.exists())
             csrf_client = Client(enforce_csrf_checks=True)
             csrf_client.force_login(user)
-            self.assertEqual(csrf_client.post(create, {"steam_id": "[U:1:643]", "ban_id": 32, "message": "Appeal"}).status_code, 403)
+            self.assertEqual(csrf_client.post(create, {"ban_id": 32, "message": "Appeal"}).status_code, 403)
 
-            submitted = self.client.post(create, {"steam_id": "[U:1:643]", "ban_id": 32, "message": '<script>Appeal</script>'})
+            submitted = self.client.post(create, {"ban_id": 32, "message": '<script>Appeal</script>'})
             ticket = UnbanTicket.objects.get()
             self.assertEqual((ticket.ban_id, ticket.author_id, ticket.message), (32, user.pk, "<script>Appeal</script>"))
             self.assertRedirects(submitted, reverse("unban-ticket", args=[ticket.pk]))
@@ -120,7 +157,7 @@ class BeautyBansSourceTests(TransactionTestCase):
         self.assertContains(response, "Permanent")
         self.assertNotContains(response, "Hidden mute")
 
-    def test_issuer_reviews_once_and_head_can_reverse_the_exact_ban(self):
+    def test_issuer_reviews_once_and_moderator_can_reverse_the_exact_ban(self):
         with connection.cursor() as cursor:
             cursor.execute("""
                 INSERT INTO punishments_punishment VALUES
@@ -129,17 +166,14 @@ class BeautyBansSourceTests(TransactionTestCase):
             """)
         users = get_user_model().objects
         player = users.create_user(username="player")
-        issuer = users.create_user(username="issuer", is_staff=True, beauty_bans_admin_id=1)
-        other = users.create_user(username="other", is_staff=True, beauty_bans_admin_id=2)
-        head = users.create_user(username="head", is_staff=True)
-        head.user_permissions.add(Permission.objects.get(
-            content_type__app_label="community", codename="review_all_unbantickets",
-        ))
+        issuer = users.create_user(username="issuer", steam_id="76561197960265975")
+        other = users.create_user(username="other", steam_id="76561197960265977")
+        head = users.create_user(username="moderator", steam_id="76561197960265979")
         ticket = UnbanTicket.objects.create(author=player, ban_id=1, subject="Appeal", message="Please review")
         detail = reverse("unban-ticket", args=[ticket.pk])
         review = reverse("unban-ticket-review", args=[ticket.pk])
         approval = {"status": "approved", "version": 0}
-        with override_settings(BEAUTY_BANS_DATABASE_URL=self.dsn, BEAUTY_BANS_REVIEW_DATABASE_URL=self.dsn):
+        with override_settings(BEAUTY_BANS_DATABASE_URL=self.dsn, BEAUTY_BANS_REVIEW_DATABASE_URL=self.dsn, BEAUTY_BANS_SERVER_ID="1"):
             for user in (player, other):
                 self.client.force_login(user)
                 self.assertNotContains(self.client.get(detail), "Разбанить")
@@ -180,3 +214,19 @@ class BeautyBansSourceTests(TransactionTestCase):
             with connection.cursor() as cursor:
                 cursor.execute("SELECT is_active FROM punishments_punishment WHERE id = 1")
                 self.assertEqual(cursor.fetchone(), (False,))
+
+    def test_anticheat_groups_and_expiration(self):
+        user = get_user_model().objects.create_user(username="admin", steam_id="76561197960265975")
+        self.client.force_login(user)
+        url = reverse("anticheat:index")
+        with override_settings(BEAUTY_BANS_DATABASE_URL=self.dsn, BEAUTY_BANS_SERVER_ID="1"):
+            for group in ("Владелец", "Гл. админ", "Модератор", "Админ"):
+                with connection.cursor() as cursor:
+                    cursor.execute("UPDATE admins_admingroup SET name = %s WHERE id = 1", (group,))
+                self.assertContains(self.client.get(url), "Античит")
+            with connection.cursor() as cursor:
+                cursor.execute("UPDATE admins_adminserver SET expires_at = now() WHERE admin_id = 1")
+            self.assertEqual(self.client.get(url).status_code, 403)
+            watcher = get_user_model().objects.create_user(username="watcher", steam_id="76561197960265981", is_staff=True)
+            self.client.force_login(watcher)
+            self.assertEqual(self.client.get(url).status_code, 403)

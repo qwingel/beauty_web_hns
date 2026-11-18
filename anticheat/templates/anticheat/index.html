@@ -16,7 +16,7 @@
             {% for player in players %}
                 <li><a class="review-row" href="{% url 'anticheat:player' player.id %}">
                     <span class="review-player">
-                        {% include 'community/player_card.html' with name=player.latest_name|default:player.steamid only %}
+                        {% include 'community/player_card.html' with name=player.latest_name|default:player.steamid player_role=player.role only %}
                         <small class="mono">{{ player.steamid }}</small>
                     </span>
                     <span>{{ player.connections }} сесс.</span>
@@ -35,7 +35,7 @@
             {% for decision in detections %}
                 <li><a class="review-row detection-row" href="{% url 'anticheat:segment' decision.segment_id %}?detected=1{% if decision.match_id %}&amp;match={{ decision.match_id }}{% endif %}">
                     <span class="review-player">
-                        {% include 'community/player_card.html' with name=decision.segment.name|default:decision.segment.steamid|default:"Игрок" only %}
+                        {% include 'community/player_card.html' with name=decision.segment.name|default:decision.segment.steamid|default:"Игрок" player_role=decision.player_role only %}
                         <small>{% if decision.match_id %}Матч #{{ decision.match_id }}{% else %}Матч —{% endif %}</small>
                     </span>
                     <span class="badge bad">{{ decision.get_kind_display }}</span>
@@ -50,7 +50,6 @@
     <section class="panel" aria-labelledby="recent-matches">
         <div class="section-head">
             <h2 id="recent-matches">Последние матчи</h2>
-            {% if demo %}<small>Демо</small>{% endif %}
         </div>
         <ul class="review-list" role="list">
             {% for match in matches %}

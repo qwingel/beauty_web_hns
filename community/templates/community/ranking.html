@@ -22,18 +22,23 @@
                         <tr>
                             <td><span class="rank-marker{% if player.rank == 1 %} rank-leader{% endif %}">{{ player.rank }}</span></td>
                             <th scope="row">
-                                {% url 'player-profile' player.name as player_url %}
-                                {% include "community/player_card.html" with name=player.name href=player_url only %}
+                                {% url 'player-profile' player.profile_id as player_url %}
+                                {% include "community/player_card.html" with name=player.name href=player_url player_role=player.role only %}
                             </th>
                             <td class="rating-points"><strong>{{ player.rating }}</strong> <small>PTS</small></td>
-                            <td>{{ player.winrate }}% <meter class="win-meter" min="0" max="100" value="{{ player.winrate }}" aria-label="Процент побед"></meter></td>
+                            <td>{% if player.winrate != None %}{{ player.winrate }}% <meter class="win-meter" min="0" max="100" value="{{ player.winrate }}" aria-label="Процент побед"></meter>{% else %}—{% endif %}</td>
                         </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     {% else %}
-        <p class="data-empty">Игрок не найден. Проверь ник или SteamID. <a class="data-link" href="{% url 'ranking' %}?mode={{ mode }}">Сбросить поиск</a></p>
+        <p class="data-empty">{% if stats_unavailable %}Рейтинг временно недоступен.{% elif query %}В рейтинге никого не найдено. <a class="data-link" href="{% url 'ranking' %}?mode={{ mode }}">Сбросить поиск</a>{% else %}В рейтинге пока нет игроков.{% endif %}</p>
     {% endif %}
-    <p class="demo-note">Демонстрационные данные</p>
+    {% if previous or following %}
+        <nav class="data-section filter-bar" aria-label="Страницы рейтинга">
+            {% if previous %}<a class="control" href="{% querystring page=previous %}">← Назад</a>{% endif %}
+            {% if following %}<a class="control" href="{% querystring page=following %}">Далее →</a>{% endif %}
+        </nav>
+    {% endif %}
 {% endblock %}

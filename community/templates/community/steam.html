@@ -6,8 +6,11 @@
 {% block content %}
     <section class="profile-panel auth-card" aria-labelledby="auth-title">
         <h1 id="auth-title">Вход в Beauty</h1>
-        <p class="profile-alternative">Вход через Steam пока недоступен.</p>
-        <p class="profile-alternative"><button class="connect" type="button" disabled>Войти через Steam</button></p>
-        <p class="profile-alternative"><a class="data-link" href="{% url 'profile-login' %}">Войти с паролем</a></p>
+        <p class="profile-alternative" role="status">{{ message }}</p>
+        {% if steam_enabled %}
+            <p class="profile-alternative"><a class="connect" href="{% url 'steam-login' %}?next={{ next|urlencode }}">Войти через Steam</a></p>
+        {% else %}
+            <p class="profile-alternative"><a class="data-link" href="{% url 'profile-login' %}">Войти с паролем</a></p>
+        {% endif %}
     </section>
 {% endblock %}

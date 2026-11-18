@@ -1,4 +1,7 @@
-{% if href %}<a class="player-card" href="{{ href }}">{% else %}<span class="player-card">{% endif %}
-    <span class="avatar" aria-hidden="true">{{ name|slice:":1" }}</span>
-    <strong class="player-card-name">{{ name }}</strong>
+{% if href %}<a class="player-card{% if player_role %} role-{{ player_role.tone }}{% endif %}" href="{{ href }}">{% else %}<span class="player-card{% if player_role %} role-{{ player_role.tone }}{% endif %}">{% endif %}
+    {% include "community/avatar.html" with name=name avatar_url=avatar_url only %}
+    <span class="player-card-identity">
+        <strong class="player-card-name">{{ name }}</strong>
+        {% if player_role %}<small class="role-label">{{ player_role.label }}</small>{% endif %}
+    </span>
 {% if href %}</a>{% else %}</span>{% endif %}

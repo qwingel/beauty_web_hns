@@ -43,6 +43,7 @@ TEMPLATES = [{
         "django.template.context_processors.request",
         "django.contrib.auth.context_processors.auth",
         "django.contrib.messages.context_processors.messages",
+        "community.ban_access.navigation_access",
     ]},
 }]
 WSGI_APPLICATION = "config.wsgi.application"
@@ -76,6 +77,9 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 GAME_SERVER_ADDRESS = os.getenv("GAME_SERVER_ADDRESS", "")
 BEAUTY_BANS_DATABASE_URL = os.getenv("BEAUTY_BANS_DATABASE_URL", "")
 BEAUTY_BANS_REVIEW_DATABASE_URL = os.getenv("BEAUTY_BANS_REVIEW_DATABASE_URL", "")
+BEAUTY_BANS_SERVER_ID = os.getenv("BEAUTY_BANS_SERVER_ID", "")
+COMMUNITY_BANS_PREFIX = "banlist" if os.getenv("COMMUNITY_BANS_PREFIX") == "banlist" else "bans"
+STEAM_LOGIN_ORIGIN = os.getenv("STEAM_LOGIN_ORIGIN", "").rstrip("/")
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 SESSION_COOKIE_SECURE = os.getenv("DJANGO_SECURE_COOKIES", "0" if DEBUG else "1") == "1"
 CSRF_COOKIE_SECURE = SESSION_COOKIE_SECURE
@@ -93,3 +97,5 @@ AC_S3_ADDRESSING_STYLE = os.getenv("AC_S3_ADDRESSING_STYLE", "auto")
 AC_VIEWER_MAX_ARCHIVE_BYTES = 128 * 1024 * 1024
 AC_MATCH_DATABASE_URL = os.getenv("AC_MATCH_DATABASE_URL", "")
 AC_MATCH_SERVER_ID = os.getenv("AC_MATCH_SERVER_ID", "")
+MIX_CALIBRATION_MATCHES = max(1, int(os.getenv("MIX_CALIBRATION_MATCHES", "10")))
+MIX_RANKS_FILE = os.getenv("MIX_RANKS_FILE", "")

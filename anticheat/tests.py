@@ -12,6 +12,8 @@ from django.db import connection, IntegrityError, transaction
 from django.test import TransactionTestCase
 from django.utils import timezone
 
+from community.ban_access import BanAccess
+
 from .archives import load_validator
 from .identifiers import stable_id
 from .models import Archive, Decision, Journal, Player, Segment, Server, Summary
@@ -229,4 +231,6 @@ class AccessTests(TransactionTestCase):
         self.assertEqual(self.client.get(url).status_code, 403)
         user.is_superuser = True
         user.save()
-        self.assertEqual(self.client.get(url).status_code, 200)
+        self.assertEqual(self.client.get(url).status_code, 403)
+        with patch("community.ban_access.lookup_access", return_value=BanAccess(1, "владелец")):
+            self.assertEqual(self.client.get(url).status_code, 200)

@@ -12,13 +12,13 @@
                     <strong>{{ match.map }}</strong>
                 </span>
                 <span class="history-outcome">
-                    <span class="history-score" aria-label="Время выживания за TT">{% for captain, score, roster in match.teams %}{% if not forloop.first %}<span class="score-divider">—</span>{% endif %}<span{% if captain == match.winner %} class="winning-time"{% endif %}>{{ score }}</span>{% endfor %}</span>
-                    <span class="history-winner">{% if match.winner %}Победа {{ match.winner }}{% else %}Ничья{% endif %}</span>
+                    <span class="history-score" aria-label="Время выживания за TT">{% for team in match.teams %}{% if not forloop.first %}<span class="score-divider">—</span>{% endif %}<span{% if team.won %} class="winning-time"{% endif %}>{{ team.score }}</span>{% endfor %}</span>
+                    <span class="history-winner">{% if match.winner %}Победа {{ match.winner }}{% else %}Без победителя{% endif %}</span>
                 </span>
                 <span class="history-arrow">{% include "community/icon.html" with name="arrow" only %}</span>
             </a>
         </li>
     {% empty %}
-        <li class="data-empty">По выбранным фильтрам ничего нет.</li>
+        <li class="data-empty">{% if stats_unavailable %}История матчей временно недоступна.{% else %}Матчей не найдено.{% endif %}</li>
     {% endfor %}
 </ul>

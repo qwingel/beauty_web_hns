@@ -25,7 +25,6 @@ class UnbanTicket(models.Model):
         ordering = ("-created_at", "-pk")
         verbose_name = "Тикет на разбан"
         verbose_name_plural = "Тикеты на разбан"
-        permissions = [("review_all_unbantickets", "Can review and revise any unban ticket")]
 
     def __str__(self):
         return self.subject

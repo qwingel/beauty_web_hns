@@ -36,6 +36,10 @@
         <h2 id="history-title">История матчей</h2>
         {% include "community/match_rows.html" %}
     </section>
-    {% if not matches %}<a class="text-action" href="{% url 'matches' %}">Сбросить фильтры</a>{% endif %}
-    <p class="demo-note">Демонстрационные данные</p>
+    {% if previous or following %}
+        <nav class="data-section filter-bar" aria-label="Страницы матчей">
+            {% if previous %}<a class="control" href="{% querystring page=previous %}">← Назад</a>{% endif %}
+            {% if following %}<a class="control" href="{% querystring page=following %}">Далее →</a>{% endif %}
+        </nav>
+    {% endif %}
 {% endblock %}

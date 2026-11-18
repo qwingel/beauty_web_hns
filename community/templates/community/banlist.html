@@ -1,0 +1,57 @@
+{% extends "community/bans_base.html" %}
+{% load tz %}
+
+{% block moderation_content %}
+    <form class="filter-bar" action="{% url 'banlist' %}" method="get">
+        <label class="sr-only" for="ban-query">Ник или SteamID</label>
+        <input id="ban-query" type="search" name="q" value="{{ query }}" maxlength="128" placeholder="Ник или SteamID">
+        <button class="control" type="submit">Найти</button>
+        {% if query %}<a class="text-action" href="{% url 'banlist' %}">Сбросить</a>{% endif %}
+    </form>
+    {% if source_disabled %}
+        <p class="data-empty">Источник Beauty Bans не подключён.</p>
+    {% elif source_unavailable %}
+        <p class="data-empty">Банлист временно недоступен.</p>
+    {% elif bans %}
+        <div class="data-panel table-scroll moderation-table" role="region" aria-label="Банлист" tabindex="0">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Игрок</th><th scope="col">Сервер</th><th scope="col">Причина</th>
+                        <th scope="col">Админ</th><th scope="col">Выдан</th><th scope="col">Срок</th>
+                        <th scope="col">Статус</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ban in bans %}
+                        <tr>
+                            <th scope="row">
+                                <strong>{{ ban.target_name|default:ban.target_steam_id }}</strong>
+                                <small class="ban-steamid">#{{ ban.id }}{% if ban.target_name %} · {{ ban.target_steam_id }}{% endif %}</small>
+                            </th>
+                            <td>{{ ban.server_name }}</td>
+                            <td class="ban-reason">{{ ban.reason|linebreaksbr|default:"—" }}</td>
+                            <td>{{ ban.admin_name|default:"Консоль" }}</td>
+                            <td><time datetime="{{ ban.issued_at|date:'c' }}">{{ ban.issued_at|timezone:'Europe/Moscow'|date:"d.m.Y H:i" }}</time></td>
+                            <td>
+                                {% if ban.duration == 0 %}Бессрочно
+                                {% elif ban.expires_at %}До <time datetime="{{ ban.expires_at|date:'c' }}">{{ ban.expires_at|timezone:'Europe/Moscow'|date:"d.m.Y H:i" }}</time>
+                                {% else %}{{ ban.duration }} мин{% endif %}
+                            </td>
+                            <td><span class="tag{% if ban.active %} tag-ban-active{% endif %}">{% if ban.active %}Активен{% else %}Неактивен{% endif %}</span></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if previous or following %}
+            <nav class="moderation-pages" aria-label="Страницы банлиста">
+                {% if previous %}<a class="text-action" href="{% querystring page=previous %}">← Новее</a>{% endif %}
+                <span>Страница {{ number }}</span>
+                {% if following %}<a class="text-action" href="{% querystring page=following %}">Старее →</a>{% endif %}
+            </nav>
+        {% endif %}
+    {% else %}
+        <p class="data-empty">{% if query %}По запросу ничего не найдено.{% else %}Банов пока нет.{% endif %}</p>
+    {% endif %}
+{% endblock %}

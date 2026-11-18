@@ -1,0 +1,35 @@
+{% extends "community/bans_base.html" %}
+{% load tz %}
+
+{% block moderation_action %}
+    <a class="connect moderation-action" href="{% url 'unban-ticket-create' %}">Создать тикет</a>
+{% endblock %}
+
+{% block moderation_content %}
+    {% if tickets %}
+        <ul class="history-list" role="list">
+            {% for ticket in tickets %}
+                <li>
+                    <a class="history-row ticket-row" href="{% url 'unban-ticket' ticket.id %}">
+                        <span class="ticket-title">
+                            <strong>{{ ticket.subject }}</strong>
+                            <small>Бан #{{ ticket.ban_id }}{% if ticket.author %} · {{ ticket.author.get_username }}{% endif %}</small>
+                            <time datetime="{{ ticket.created_at|date:'c' }}">{{ ticket.created_at|timezone:'Europe/Moscow'|date:"d.m.Y H:i" }}</time>
+                        </span>
+                        <span class="tag">{{ ticket.get_status_display }}</span>
+                        <span class="history-arrow">{% include "community/icon.html" with name="arrow" only %}</span>
+                    </a>
+                </li>
+            {% endfor %}
+        </ul>
+        {% if tickets.has_other_pages %}
+            <nav class="moderation-pages" aria-label="Страницы тикетов">
+                {% if tickets.has_previous %}<a class="text-action" href="?page={{ tickets.previous_page_number }}">← Новее</a>{% endif %}
+                <span>Страница {{ tickets.number }}</span>
+                {% if tickets.has_next %}<a class="text-action" href="?page={{ tickets.next_page_number }}">Старее →</a>{% endif %}
+            </nav>
+        {% endif %}
+    {% else %}
+        <p class="data-empty">Тикетов на разбан пока нет.</p>
+    {% endif %}
+{% endblock %}

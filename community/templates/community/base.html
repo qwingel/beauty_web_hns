@@ -31,6 +31,7 @@
             <a href="{% url 'home' %}" {% if route == 'home' %}aria-current="page"{% endif %}><span class="nav-icon">{% include "community/icon.html" with name="home" only %}</span>Главная</a>
             <a href="{% url 'matches' %}" {% if route == 'matches' or route == 'match' %}aria-current="page"{% endif %}><span class="nav-icon">{% include "community/icon.html" with name="matches" only %}</span>Матчи</a>
             <a href="{% url 'ranking' %}" {% if route == 'ranking' or route == 'player-profile' %}aria-current="page"{% endif %}><span class="nav-icon">{% include "community/icon.html" with name="ranking" only %}</span>Рейтинг</a>
+            <a href="{% url 'banlist' %}" {% if route == 'banlist' or route == 'unban-tickets' or route == 'unban-ticket' or route == 'unban-ticket-create' %}aria-current="page"{% endif %}><span class="nav-icon">{% include "community/icon.html" with name="ban" only %}</span>Баны</a>
             <a href="{% url 'about' %}" {% if route == 'about' %}aria-current="page"{% endif %}><span class="nav-icon">{% include "community/icon.html" with name="info" only %}</span>О сервере</a>
             {% if user.is_staff %}<a href="{% url 'anticheat:index' %}" {% if request.resolver_match.namespace == 'anticheat' %}aria-current="page"{% endif %}><span class="nav-icon">{% include "community/icon.html" with name="shield" only %}</span>Античит</a>{% endif %}
         {% endwith %}

@@ -1,0 +1,17 @@
+{% extends "community/bans_base.html" %}
+{% load tz %}
+
+{% block moderation_content %}
+    <a class="back-link data-link" href="{% url 'unban-tickets' %}">← Все тикеты</a>
+    <article class="profile-panel ticket-detail">
+        <div class="card-title">
+            <h2>{{ ticket.subject }}</h2>
+            <span class="tag">{{ ticket.get_status_display }}</span>
+        </div>
+        <p class="page-caption">
+            Бан #{{ ticket.ban_id }}{% if ticket.author %} · {{ ticket.author.get_username }}{% endif %}
+            · <time datetime="{{ ticket.created_at|date:'c' }}">{{ ticket.created_at|timezone:'Europe/Moscow'|date:"d.m.Y H:i" }}</time>
+        </p>
+        <p class="ticket-message">{{ ticket.message|linebreaksbr }}</p>
+    </article>
+{% endblock %}

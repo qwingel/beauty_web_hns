@@ -467,6 +467,41 @@ a.player-card:is(:hover, :focus-visible), :is(.account-player, .review-row):is(:
 .roster-player { gap: var(--space-2); }
 .roster-player-roles { flex-direction: column; gap: var(--space-1); }
 .roster-player-roles .tag { min-inline-size: 24px; justify-content: center; padding-inline: var(--space-1); }
+.moderation-toolbar, .moderation-nav, .moderation-pages {
+    display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2);
+}
+.moderation-toolbar, .moderation-pages { margin-block: var(--space-5); }
+.moderation-action { margin-inline-start: auto; }
+.moderation-nav [aria-current="page"] {
+    border-color: transparent;
+    background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container);
+}
+.moderation-nav [aria-current="page"]:is(:hover, :focus-visible) {
+    background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container);
+}
+.moderation-pages { justify-content: center; color: var(--md-sys-color-on-surface-variant); font-size: .875rem; }
+.moderation-table .data-table :is(th, td) { vertical-align: top; }
+.moderation-table :is(th, time) { white-space: nowrap; }
+.ban-reason { min-width: 14ch; overflow-wrap: anywhere; }
+.ban-steamid, .ticket-title :is(small, time) {
+    display: block; color: var(--md-sys-color-on-surface-variant); font-size: .75rem;
+}
+.tag-ban-active { color: var(--md-sys-color-on-error-container); background: var(--md-sys-color-error-container); }
+.ticket-row { grid-template-columns: minmax(0, 1fr) auto auto; padding-inline: var(--space-4); }
+.ticket-title, .ticket-detail { min-width: 0; overflow-wrap: anywhere; }
+.ticket-title :is(small, time) { margin-top: var(--space-1); }
+.ticket-message { margin-block-start: var(--space-4); }
+.ticket-create { max-inline-size: 680px; }
+.ticket-lookup, .ticket-submit { display: grid; gap: var(--space-2); margin-top: var(--space-4); }
+.ticket-lookup-controls { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.ticket-lookup-controls input { flex: 1 1 180px; min-width: 0; }
+.ticket-submit textarea {
+    width: 100%; min-height: 120px; resize: vertical; padding: var(--space-3);
+    border: 1px solid var(--md-sys-color-outline); border-radius: var(--md-sys-shape-corner-small);
+    background: var(--md-sys-color-surface); color: var(--md-sys-color-on-surface); font: inherit;
+}
+.ticket-submit button { justify-self: start; }
+.ticket-create .errorlist { margin: 0; padding-inline-start: var(--space-4); color: var(--md-sys-color-on-error-container); }
 .auth-main { display: grid; align-content: center; justify-items: center; min-height: calc(100dvh - var(--header-height)); }
 .auth-card { width: min(100%, 420px); padding: var(--space-6); }
 .auth-card h1 { font-size: clamp(1.75rem, 5vw, 2rem); line-height: 1.15; }
@@ -508,6 +543,7 @@ a.player-card:is(:hover, :focus-visible), :is(.account-player, .review-row):is(:
     }
     .site-nav .nav-icon { max-inline-size: 100%; }
     .site-main { width: auto; margin-inline: var(--space-4); padding-block: var(--space-5) calc(104px + env(safe-area-inset-bottom)); }
+    .moderation-nav .control, .moderation-action { padding-inline: var(--space-2); }
     .home-heading { gap: var(--space-2); margin-bottom: var(--space-4); }
     .monitor { display: flex; flex-direction: column-reverse; gap: 0; }
     .map-frame { height: clamp(128px, 34vw, 192px); margin: 0; }

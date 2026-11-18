@@ -4,12 +4,17 @@ from django.urls import include, path
 from django.views.generic import TemplateView
 
 from community import views as community
+from community import ban_views
 
 urlpatterns = [
     path("", community.home, name="home"),
     path("matches/", community.matches, name="matches"),
     path("matches/<int:match_id>/", community.match_detail, name="match"),
     path("ranking/", community.ranking, name="ranking"),
+    path("bans/", ban_views.banlist, name="banlist"),
+    path("bans/tickets/", ban_views.unban_tickets, name="unban-tickets"),
+    path("bans/tickets/new/", ban_views.create_unban_ticket, name="unban-ticket-create"),
+    path("bans/tickets/<int:ticket_id>/", ban_views.unban_ticket, name="unban-ticket"),
     path("players/<slug:nickname>/", community.player_profile, name="player-profile"),
     path("about/", TemplateView.as_view(template_name="community/about.html"), name="about"),
     path("profile/", community.profile, name="profile"),

@@ -1,0 +1,14 @@
+{% extends "community/base.html" %}
+{% block title %}Beauty — баны и тикеты{% endblock %}
+
+{% block content %}
+    <h1 class="subpage-title">Баны и тикеты</h1>
+    <div class="moderation-toolbar">
+        <nav class="moderation-nav" aria-label="Баны и тикеты">
+            <a class="control" href="{% url 'banlist' %}"{% if request.resolver_match.url_name == 'banlist' %} aria-current="page"{% endif %}>Банлист</a>
+            <a class="control" href="{% url 'unban-tickets' %}"{% if request.resolver_match.url_name != 'banlist' %} aria-current="page"{% endif %}>Тикеты на разбан</a>
+        </nav>
+        {% block moderation_action %}{% endblock %}
+    </div>
+    {% block moderation_content %}{% endblock %}
+{% endblock %}

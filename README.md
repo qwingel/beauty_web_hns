@@ -7,6 +7,12 @@ The public homepage is available at `/` with demo data. Set
 `GAME_SERVER_ADDRESS` to the public game server's `host:port` to enable Steam
 connection.
 
+The public ban list at `/bans/` reads Beauty Bans through
+`BEAUTY_BANS_DATABASE_URL`. Use a PostgreSQL read-only account with SELECT
+access to the columns queried in `community/ban_source.py`.
+Unban tickets are stored in the site's database. Signed-in users can read
+tickets and submit an appeal by selecting a ban found by SteamID.
+The ticket records the signed-in author separately from the SteamID lookup.
 ## Structure
 
 - `config/`: shared Django configuration, URL routing, WSGI and ASGI entry points.

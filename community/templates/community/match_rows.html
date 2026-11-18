@@ -1,0 +1,24 @@
+{% load static %}
+<ul class="history-list" role="list">
+    {% for match in matches %}
+        <li>
+            <a class="history-row history-{{ match.mode|lower }}" href="{% url 'match' match.id %}">
+                <span class="history-map{% if match.map == 'hns_floppytown' %} history-map-photo{% endif %}">
+                    {% if match.map == 'hns_floppytown' %}<img src="{% static 'community/hns_floppytown.jpg' %}" width="1920" height="1080" alt="" loading="lazy">
+                    {% else %}{% include "community/icon.html" with name="matches" only %}{% endif %}
+                </span>
+                <span class="history-info">
+                    <span class="history-meta"><span class="tag tag-{{ match.mode|lower }}">{{ match.mode }}</span><time datetime="{{ match.date|date:'Y-m-d' }}T{{ match.time }}">{{ match.date|date:"d.m" }} · {{ match.time }}</time></span>
+                    <strong>{{ match.map }}</strong>
+                </span>
+                <span class="history-outcome">
+                    <span class="history-score" aria-label="Время выживания за TT">{% for captain, score, roster in match.teams %}{% if not forloop.first %}<span class="score-divider">—</span>{% endif %}<span{% if captain == match.winner %} class="winning-time"{% endif %}>{{ score }}</span>{% endfor %}</span>
+                    <span class="history-winner">{% if match.winner %}Победа {{ match.winner }}{% else %}Ничья{% endif %}</span>
+                </span>
+                <span class="history-arrow">{% include "community/icon.html" with name="arrow" only %}</span>
+            </a>
+        </li>
+    {% empty %}
+        <li class="data-empty">По выбранным фильтрам ничего нет.</li>
+    {% endfor %}
+</ul>

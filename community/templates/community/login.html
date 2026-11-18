@@ -1,0 +1,17 @@
+{% extends "community/base.html" %}
+
+{% block title %}Beauty — вход{% endblock %}
+{% block main_class %}auth-main{% endblock %}
+
+{% block content %}
+    <section class="profile-panel auth-card" aria-labelledby="auth-title">
+        <h1 id="auth-title">Вход в профиль</h1>
+        <form method="post">
+            {% csrf_token %}
+            {{ form.as_div }}
+            <input type="hidden" name="next" value="{{ next }}">
+            <button class="connect" type="submit">Войти</button>
+        </form>
+        <p class="profile-alternative"><a class="data-link" href="{% url 'steam-login' %}">Вход через Steam</a></p>
+    </section>
+{% endblock %}

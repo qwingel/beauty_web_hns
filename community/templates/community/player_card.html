@@ -1,0 +1,4 @@
+{% if href %}<a class="player-card" href="{{ href }}">{% else %}<span class="player-card">{% endif %}
+    <span class="avatar" aria-hidden="true">{{ name|slice:":1" }}</span>
+    <strong class="player-card-name">{{ name }}</strong>
+{% if href %}</a>{% else %}</span>{% endif %}

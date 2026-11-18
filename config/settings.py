@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "accounts",
     "anticheat",
+    "community",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -72,6 +73,7 @@ USE_I18N = True
 USE_TZ = True
 STATIC_URL = "/anticheat/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+GAME_SERVER_ADDRESS = os.getenv("GAME_SERVER_ADDRESS", "")
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 SESSION_COOKIE_SECURE = os.getenv("DJANGO_SECURE_COOKIES", "0" if DEBUG else "1") == "1"
 CSRF_COOKIE_SECURE = SESSION_COOKIE_SECURE

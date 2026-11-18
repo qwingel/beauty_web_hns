@@ -1,0 +1,39 @@
+{% extends "community/base.html" %}
+
+{% block title %}Beauty — рейтинг игроков{% endblock %}
+
+{% block content %}
+    <h1 class="subpage-title">Рейтинг игроков</h1>
+    <form class="data-filters filter-bar" method="get">
+        <label class="sr-only" for="rank-query">Ник или SteamID</label>
+        <input id="rank-query" type="search" name="q" value="{{ query }}" maxlength="128" placeholder="Ник или SteamID">
+        <button class="control" type="submit" name="mode" value="{{ mode }}">Найти</button>
+        <div class="filter-toggle" role="group" aria-label="Стиль">
+            <button class="control" type="submit" name="mode" value="skill" aria-pressed="{% if mode == 'skill' %}true{% else %}false{% endif %}">Skill</button>
+            <button class="control" type="submit" name="mode" value="boost" aria-pressed="{% if mode == 'boost' %}true{% else %}false{% endif %}">Boost</button>
+        </div>
+    </form>
+    {% if players %}
+        <div class="table-scroll data-panel">
+            <table class="data-table leaderboard">
+                <thead><tr><th scope="col">#</th><th scope="col">Игрок</th><th scope="col">Рейтинг</th><th scope="col">Победы</th></tr></thead>
+                <tbody>
+                    {% for player in players %}
+                        <tr>
+                            <td><span class="rank-marker{% if player.rank == 1 %} rank-leader{% endif %}">{{ player.rank }}</span></td>
+                            <th scope="row">
+                                {% url 'player-profile' player.name as player_url %}
+                                {% include "community/player_card.html" with name=player.name href=player_url only %}
+                            </th>
+                            <td class="rating-points"><strong>{{ player.rating }}</strong> <small>PTS</small></td>
+                            <td>{{ player.winrate }}% <meter class="win-meter" min="0" max="100" value="{{ player.winrate }}" aria-label="Процент побед"></meter></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p class="data-empty">Игрок не найден. Проверь ник или SteamID. <a class="data-link" href="{% url 'ranking' %}?mode={{ mode }}">Сбросить поиск</a></p>
+    {% endif %}
+    <p class="demo-note">Демонстрационные данные</p>
+{% endblock %}

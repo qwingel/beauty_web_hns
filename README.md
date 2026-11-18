@@ -3,7 +3,9 @@
 Django website for the Beauty CS 1.6 community. Anticheat is one private app,
 not the boundary of the whole website. Planned sections are player profiles and
 statistics, bans, unban tickets, leaderboards, server monitoring and mix history.
-The anticheat backend and private web viewer are implemented at this stage.
+The public homepage is available at `/` with demo data. Set
+`GAME_SERVER_ADDRESS` to the public game server's `host:port` to enable Steam
+connection.
 
 ## Structure
 
@@ -11,12 +13,13 @@ The anticheat backend and private web viewer are implemented at this stage.
 - `accounts/`: site accounts, currently standard Django login and permissions.
   The custom User model leaves room for Steam login later. Telemetry identities
   are separate from site accounts; there is no automatic account linking.
+- `community/`: public homepage and shared community layout.
 - `anticheat/`: PostgreSQL models/migrations, read-only telemetry administration,
   and the external archive worker as a Django management command.
 - `deploy/`: example systemd unit for the worker.
 
 The foundation uses Django 5.2 LTS, PostgreSQL 14+ and Python 3.10+.
-No community-facing sections, Steam login or archive expiration are implemented.
+Steam login and archive expiration are not implemented.
 Private S3-compatible uploads are implemented with streamed read-back verification.
 There is no separate API yet. `/anticheat/` is the private viewer. `/admin/` uses Django login and staff/model
 permissions; anonymous and ordinary site users cannot inspect anticheat data.

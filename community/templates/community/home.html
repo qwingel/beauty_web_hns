@@ -1,0 +1,66 @@
+{% extends "community/base.html" %}
+{% load static %}
+
+{% block title %}Beauty HNS — главная{% endblock %}
+
+{% block content %}
+    <header class="home-heading">
+        <h1>Beauty <span>Hide &amp; Seek</span></h1>
+        <span class="demo-note">Демонстрационные данные</span>
+    </header>
+    <section class="monitor" aria-labelledby="server-heading">
+        <div class="server-card">
+            <div>
+                <p class="server-label"><span aria-hidden="true"></span>Сейчас играют</p>
+                <h2 id="server-heading" class="server-map">{{ server.map }}</h2>
+                <p class="server-mode">{{ server.mode }}</p>
+            </div>
+            <div class="server-occupancy">
+                <div class="section-heading">
+                    <span>Игроки на сервере</span>
+                    <strong>{{ server.players }} / {{ server.capacity }}</strong>
+                </div>
+                <meter min="0" max="{{ server.capacity }}" value="{{ server.players }}" aria-label="Заполненность сервера"></meter>
+            </div>
+            {% if server.address %}
+                <a class="connect" href="steam://connect/{{ server.address }}">{% include "community/icon.html" with name="play" only %} Подключиться</a>
+            {% else %}
+                <button class="connect" type="button" disabled title="Адрес сервера не задан">{% include "community/icon.html" with name="play" only %} Подключиться</button>
+                <small>Адрес сервера не задан</small>
+            {% endif %}
+        </div>
+        {% if server.image %}
+            <figure class="map-frame">
+                <img src="{% static server.image %}" width="1920" height="1080" alt="Крыши и дворы {{ server.map }}" fetchpriority="high">
+                <figcaption><a href="{{ server.image_source }}">Кадр карты · GameBanana</a></figcaption>
+            </figure>
+        {% endif %}
+    </section>
+
+    <section class="data-section" aria-labelledby="stats-heading">
+        <h2 id="stats-heading">Статистика сервера</h2>
+        <dl class="metrics">
+            {% for metric in metrics %}
+                <div class="metric">
+                    <dt>{{ metric.label }}</dt>
+                    <dd>
+                        {{ metric.value }}
+                        <span class="metric-icon" aria-hidden="true">
+                            {% if forloop.first %}{% include "community/icon.html" with name="matches" only %}
+                            {% elif forloop.last %}{% include "community/icon.html" with name="people" only %}
+                            {% else %}{% include "community/icon.html" with name="activity" only %}{% endif %}
+                        </span>
+                    </dd>
+                </div>
+            {% endfor %}
+        </dl>
+    </section>
+
+    <section class="data-section" aria-labelledby="matches-heading">
+        <div class="section-heading">
+            <h2 id="matches-heading">Последние матчи</h2>
+            <a class="text-action" href="{% url 'matches' %}">Все матчи {% include "community/icon.html" with name="arrow" only %}</a>
+        </div>
+        {% include "community/match_rows.html" %}
+    </section>
+{% endblock %}

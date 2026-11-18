@@ -1,0 +1,41 @@
+{% extends "community/base.html" %}
+{% load static %}
+
+{% block title %}Beauty — матчи{% endblock %}
+{% block styles %}<script src="{% static 'community/match-filters.js' %}" defer></script>{% endblock %}
+
+{% block content %}
+    <h1 class="subpage-title">Матчи</h1>
+    <form class="data-filters filter-bar match-filters" method="get">
+        <label class="sr-only" for="match-mode">Стиль</label>
+        <div class="select-field">
+        <select id="match-mode" name="mode">
+            <option value="">Все</option>
+            <option value="Skill" {% if mode == 'Skill' %}selected{% endif %}>Skill</option>
+            <option value="Boost" {% if mode == 'Boost' %}selected{% endif %}>Boost</option>
+        </select>
+        </div>
+        <label class="sr-only" for="match-map">Карта</label>
+        <div class="select-field">
+        <select id="match-map" name="map">
+            <option value="">Все карты</option>
+            {% for map in maps %}<option {% if map == map_name %}selected{% endif %}>{{ map }}</option>{% endfor %}
+        </select>
+        </div>
+        <label class="sr-only" for="match-period">Период</label>
+        <div class="select-field">
+        <select id="match-period" name="period">
+            <option value="">За всё время</option>
+            <option value="1" {% if period == '1' %}selected{% endif %}>Сегодня</option>
+            <option value="7" {% if period == '7' %}selected{% endif %}>За 7 дней</option>
+        </select>
+        </div>
+        <button type="submit" class="control">Показать</button>
+    </form>
+    <section class="history-section" aria-labelledby="history-title">
+        <h2 id="history-title">История матчей</h2>
+        {% include "community/match_rows.html" %}
+    </section>
+    {% if not matches %}<a class="text-action" href="{% url 'matches' %}">Сбросить фильтры</a>{% endif %}
+    <p class="demo-note">Демонстрационные данные</p>
+{% endblock %}

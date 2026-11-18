@@ -1,0 +1,42 @@
+{% load static %}
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#14131b">
+    <title>{% block title %}Beauty{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'community/site.css' %}">
+    {% block styles %}{% endblock %}
+</head>
+<body>
+    <a class="skip-link" href="#main-content">К содержимому</a>
+    <header class="site-header">
+        <a class="brand" href="{% url 'home' %}">
+            <span class="brand-icon">{% include "community/icon.html" with name="brand" only %}</span>
+            <span>Beauty<span class="brand-suffix">HNS</span></span>
+        </a>
+        {% if user.is_authenticated %}
+            <a class="account account-player" href="{% url 'profile' %}" {% if request.resolver_match.url_name == 'profile' %}aria-current="page"{% endif %}>
+                {% include "community/player_card.html" with name=user.get_username only %}
+            </a>
+        {% else %}
+            <a class="account" href="{% url 'profile-login' %}" {% if request.resolver_match.url_name == 'profile-login' %}aria-current="page"{% endif %}>
+                {% include "community/icon.html" with name="login" only %} Войти
+            </a>
+        {% endif %}
+    </header>
+    <nav class="site-nav" aria-label="Основная навигация">
+        {% with route=request.resolver_match.view_name %}
+            <a href="{% url 'home' %}" {% if route == 'home' %}aria-current="page"{% endif %}><span class="nav-icon">{% include "community/icon.html" with name="home" only %}</span>Главная</a>
+            <a href="{% url 'matches' %}" {% if route == 'matches' or route == 'match' %}aria-current="page"{% endif %}><span class="nav-icon">{% include "community/icon.html" with name="matches" only %}</span>Матчи</a>
+            <a href="{% url 'ranking' %}" {% if route == 'ranking' or route == 'player-profile' %}aria-current="page"{% endif %}><span class="nav-icon">{% include "community/icon.html" with name="ranking" only %}</span>Рейтинг</a>
+            <a href="{% url 'about' %}" {% if route == 'about' %}aria-current="page"{% endif %}><span class="nav-icon">{% include "community/icon.html" with name="info" only %}</span>О сервере</a>
+            {% if user.is_staff %}<a href="{% url 'anticheat:index' %}" {% if request.resolver_match.namespace == 'anticheat' %}aria-current="page"{% endif %}><span class="nav-icon">{% include "community/icon.html" with name="shield" only %}</span>Античит</a>{% endif %}
+        {% endwith %}
+    </nav>
+    <main id="main-content" class="site-main {% block main_class %}{% endblock %}" tabindex="-1">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

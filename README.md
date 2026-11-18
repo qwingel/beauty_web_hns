@@ -23,6 +23,15 @@ Both Beauty Bans roles need SELECT on the columns used by
 `community/ban_access.py`. Steam sign-in creates an account keyed by SteamID64.
 Access to Django's technical `/admin/` still requires a Django staff account.
 
+Production uses `https://beautyhns.ru` for the site and Steam OpenID.
+`deploy/beauty-domains.nginx.conf` redirects `beauty-cs.ru` and
+`beautyhns.online` to that origin and uses a Let's Encrypt certificate
+covering all three domains. Include `beautyhns.ru` in `DJANGO_ALLOWED_HOSTS`
+and `https://beautyhns.ru` in `DJANGO_CSRF_TRUSTED_ORIGINS`. Certbot uses
+`/var/www/beauty-site-acme` as its webroot. Install and enable
+`deploy/beauty-certbot-renew.timer` with its companion service to renew
+certificates and reload nginx after a successful renewal.
+
 Set `BEAUTY_BANS_REVIEW_DATABASE_URL` to a separate PostgreSQL role on the same
 Beauty Bans database to enable decisions. Give it SELECT on the columns read by
 `community/ticket_review.py` and UPDATE on `is_active`, `unban_reason`, and
